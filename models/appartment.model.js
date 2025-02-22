@@ -59,22 +59,54 @@ const appartmentSchema = new mongoose.Schema(
       default: true,
     },
     boilerImage: {
-      type: String,
-      required: true,
+      url: {
+        type: String,
+        required: true,
+      },
+      status: {
+        type: String,
+        default: "Being checked",
+      },
     },
     gazStove: {
-      type: String,
-      required: true,
+      url: {
+        type: String,
+        required: true,
+      },
+      status: {
+        type: String,
+        default: "Being checked",
+      },
     },
     chimney: {
-      type: String,
-      required: true,
+      url: {
+        type: String,
+        required: true,
+      },
+      status: {
+        type: String,
+        default: "Being checked",
+      },
     },
     status: {
       type: String,
       default: "Being checked",
     },
     needNew: {
+      type: Boolean,
+      default: false,
+    },
+    location: {
+      lat: {
+        type: String,
+        required: true,
+      },
+      long: {
+        type: String,
+        required: true,
+      },
+    },
+    view: {
       type: Boolean,
       default: false,
     },

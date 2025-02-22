@@ -14,7 +14,7 @@ const tutorSchema = new mongoose.Schema(
       type: String,
       default: "tutor",
     },
-    faculty: {
+    group: {
       type: String,
       required: true,
     },

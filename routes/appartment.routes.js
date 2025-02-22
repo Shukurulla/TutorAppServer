@@ -65,10 +65,14 @@ router.post("/appartment/create", authMiddleware, async (req, res) => {
 
     const newAppartment = new AppartmentModel({
       studentId,
-      boilerImage: `/public/images/${boilerImageName}`,
-      gazStove: `/public/images/${gazStoveName}`,
-      chimney: `/public/images/${chimneyName}`,
+      boilerImage: { url: `/public/images/${boilerImageName}` },
+      gazStove: { url: `/public/images/${gazStoveName}` },
+      chimney: { url: `/public/images/${chimneyName}` },
       needNew: false,
+      location: {
+        lat: req.body.lat,
+        long: req.body.lon,
+      },
       ...req.body,
     });
 
@@ -129,7 +133,7 @@ router.get("/appartment/by-group/:name", async (req, res) => {
 
 router.post("/appartment/check", authMiddleware, async (req, res) => {
   try {
-    const { appartmentId, status } = req.body;
+    const { appartmentId, status, chimney, gazStove, boiler } = req.body;
 
     const findAppartment = await AppartmentModel.findById(appartmentId);
     if (!findAppartment) {
@@ -137,8 +141,12 @@ router.post("/appartment/check", authMiddleware, async (req, res) => {
         .status(400)
         .json({ status: "error", message: "Bunday kvartira topilmadi" });
     }
+
     await AppartmentModel.findByIdAndUpdate(appartmentId, {
       status,
+      boilerImage: { ...findAppartment.boilerImage, status: boiler },
+      chimney: { ...findAppartment.chimney, status: chimney },
+      gazStove: { ...findAppartment.gazStove, status: gazStove },
     });
     const checkedAppartment = await AppartmentModel.findById(appartmentId);
     res.status(200).json({ status: "success", data: checkedAppartment });
@@ -163,25 +171,29 @@ router.get(
       }
 
       const findStudents = await StudentModel.find({
-        "faculty.name": findTutor.faculty,
+        "group.name": findTutor.group,
       });
 
       const appartments = await AppartmentModel.find({ current: true });
-
+      if (!appartments) {
+        return res.json({
+          message:
+            "Sizning guruhingizdagi studentlar hali ijara malumotlarini qoshmagan",
+        });
+      }
       // Studentlarga tegishli unikal apartamentlarni yig‘ish
       const studentAppartments = findStudents
         .map((student) =>
-          appartments.find((c) => c.studentId === student.student_id_number)
+          appartments.find(
+            (c) => c.studentId.toString() === student._id.toString()
+          )
         )
         .filter(Boolean); // Undefined bo'lganlarni olib tashlash
-
-      // Takroriy bo‘lgan `appartment` obyektlarini olib tashlash
       const uniqueAppartments = Array.from(
         new Map(
-          studentAppartments.map((appartment) => [
-            appartment._id.toString(),
-            appartment,
-          ])
+          studentAppartments
+            .filter((c) => c.status !== "Being checked")
+            .map((appartment) => [appartment._id.toString(), appartment])
         ).values()
       );
 
@@ -197,9 +209,20 @@ router.get(
 
       const statusPercentages = totalCount
         ? {
-            green: ((statusCounts.green / totalCount) * 100).toFixed(2) + "%",
-            yellow: ((statusCounts.yellow / totalCount) * 100).toFixed(2) + "%",
-            red: ((statusCounts.red / totalCount) * 100).toFixed(2) + "%",
+            green: {
+              percent:
+                ((statusCounts.green / totalCount) * 100).toFixed(2) + "%",
+              total: statusCounts.green,
+            },
+            yellow: {
+              percent:
+                ((statusCounts.yellow / totalCount) * 100).toFixed(2) + "%",
+              total: statusCounts.yellow,
+            },
+            red: {
+              percent: ((statusCounts.red / totalCount) * 100).toFixed(2) + "%",
+              total: statusCounts.red,
+            },
           }
         : { green: "0%", yellow: "0%", red: "0%" };
 
@@ -215,6 +238,18 @@ router.get(
   }
 );
 
+router.get("/appartment/all-delete", async (req, res) => {
+  try {
+    const appartments = await AppartmentModel.find();
+    for (let i = 0; i < appartments.length; i++) {
+      await AppartmentModel.findByIdAndDelete(appartments[i]._id);
+    }
+    res.json(appartments);
+  } catch (error) {
+    res.json({ message: error.message });
+  }
+});
+
 router.get("/appartment/new", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
@@ -229,27 +264,37 @@ router.get("/appartment/new", authMiddleware, async (req, res) => {
 
     // O'sha fakultetga tegishli studentlarni topish
     const findStudents = await StudentModel.find({
-      "faculty.name": findTutor.faculty,
-    }).select("_id");
+      "group.name": findTutor.group,
+    });
 
     if (!findStudents.length) {
       return res.status(400).json({
         status: "error",
-        message: "Bu fakultetda studentlar topilmadi",
+        message: "Bu guruhda studentlar topilmadi",
       });
     }
 
-    // Studentlarning ID larini olish
-    const studentIds = findStudents.map((student) => student.student_id_number);
-
-    // Studentlarga tegishli appartmentlarni topish
     const appartments = await AppartmentModel.find({
-      student: { $in: studentIds }, // student IDlari bo'yicha filter
       current: true,
       status: "Being checked",
     });
 
-    res.json({ status: "success", appartments });
+    const filteredAppartments = appartments.filter((appartment) =>
+      findStudents.find((c) => c._id == appartment.studentId)
+    );
+    const withStudent = filteredAppartments.map((item) => {
+      const student = findStudents.find((c) => c._id == item.studentId);
+      return {
+        student: {
+          full_name: student.full_name,
+          image: student.image,
+          faculty: student.faculty,
+          group: student.group,
+        },
+        appartment: item,
+      };
+    });
+    res.json({ status: "success", data: withStudent });
   } catch (error) {
     res
       .status(500)
@@ -278,28 +323,38 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "Bunday tutor topilmadi" });
     }
 
-    // Tutorning studentlarini topish
     const findStudents = await StudentModel.find({
-      "faculty.name": findTutor.faculty,
-    }).select("_id");
+      "group.name": findTutor.group,
+    });
 
     if (!findStudents.length) {
       return res.status(400).json({
         status: "error",
-        message: "Bu fakultetda studentlar topilmadi",
+        message: "Bu guruhda studentlar topilmadi",
       });
     }
 
-    // Studentlarning ID larini olish
-    const studentIds = findStudents.map((student) => student.student_id_number);
-
-    // Studentlarga tegishli appartmentlarni topish
     const appartments = await AppartmentModel.find({
-      student: { $in: studentIds }, // Faqat tutorning studentlariga tegishli bo'lishi kerak
+      current: true,
       status: status,
     });
 
-    res.json({ status: "success", appartments });
+    const filteredAppartments = appartments.filter((appartment) =>
+      findStudents.find((c) => c._id == appartment.studentId)
+    );
+    const withStudent = filteredAppartments.map((item) => {
+      const student = findStudents.find((c) => c._id == item.studentId);
+      return {
+        student: {
+          full_name: student.full_name,
+          image: student.image,
+          faculty: student.faculty,
+          group: student.group,
+        },
+        appartment: item,
+      };
+    });
+    res.json({ status: "success", data: withStudent });
   } catch (error) {
     res
       .status(500)

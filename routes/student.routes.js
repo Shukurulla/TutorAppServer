@@ -2,6 +2,8 @@ import express from "express";
 import StudentModel from "../models/student.model.js";
 import axios from "axios";
 import generateToken from "../utils/token.js";
+import authMiddleware from "../middlewares/auth.middleware.js";
+import AppartmentModel from "../models/appartment.model.js";
 
 const router = express.Router();
 
@@ -38,6 +40,38 @@ router.post("/student/sign", async (req, res) => {
     res.json({ status: "success", student, token });
   } catch (error) {
     res.json({ message: error.message });
+  }
+});
+
+router.post("/student/create-byside", async (req, res) => {
+  try {
+    const student = await StudentModel.create(req.body);
+    res.json(student);
+  } catch (error) {
+    res.json({ message: error.message });
+  }
+});
+
+router.get("/student/notification/:id", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const findStudent = await StudentModel.findById(id);
+    if (!findStudent) {
+      return res
+        .status(401)
+        .json({ status: "error", message: "Bunday student topilmadi" });
+    }
+
+    const appartments = await AppartmentModel.find({
+      studentId: id,
+      view: false,
+    });
+    res.status(200).json({
+      status: "success",
+      data: appartments.filter((c) => c.status != "Being checked"),
+    });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
   }
 });
 

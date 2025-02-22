@@ -4,12 +4,13 @@ import authMiddleware from "../middlewares/auth.middleware.js";
 import adminModel from "../models/admin.model.js";
 import bcrypt from "bcrypt";
 import generateToken from "../utils/token.js";
+import StudentModel from "../models/student.model.js";
 const router = express.Router();
 
 router.post("/tutor/create", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
-    const { login, password, faculty } = req.body;
+    const { login, password, group } = req.body;
     const findAdmin = await adminModel.findById(userId);
     if (!findAdmin) {
       return res
@@ -17,7 +18,7 @@ router.post("/tutor/create", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "Bunday admin topilmadi" });
     }
 
-    if (!login || !password || !faculty) {
+    if (!login || !password || !group) {
       return res.status(400).json({
         status: "error",
         message: "Iltimos Malumotlarni toliq kiriting",
@@ -35,7 +36,7 @@ router.post("/tutor/create", authMiddleware, async (req, res) => {
 
     const tutor = await tutorModel.create({
       login,
-      faculty,
+      group,
       password: hashedPassword,
     });
 
@@ -76,6 +77,26 @@ router.post("/tutor/login", async (req, res) => {
     res
       .status(error.status || 500)
       .json({ status: "error", message: error.message });
+  }
+});
+
+router.get("/tutor/my-students", authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.userData;
+
+    const findTutor = await tutorModel.findById(userId);
+    if (!findTutor) {
+      return res
+        .status(401)
+        .json({ status: "error", message: "Bunday tutor topilmadi" });
+    }
+
+    const group = findTutor.group;
+    const findStudents = await StudentModel.find({ "group.name": group });
+
+    res.status(201).json({ status: "success", data: findStudents });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
   }
 });
 
