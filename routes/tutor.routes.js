@@ -5,7 +5,6 @@ import adminModel from "../models/admin.model.js";
 import bcrypt from "bcrypt";
 import generateToken from "../utils/token.js";
 import StudentModel from "../models/student.model.js";
-import bcrypt from "bcrypt";
 const router = express.Router();
 
 router.post("/tutor/create", authMiddleware, async (req, res) => {
@@ -18,7 +17,6 @@ router.post("/tutor/create", authMiddleware, async (req, res) => {
         .status(400)
         .json({ status: "error", message: "Bunday admin topilmadi" });
     }
-
     if (!login || !password || !group) {
       return res.status(400).json({
         status: "error",
@@ -136,18 +134,14 @@ router.post("/tutor/change-password", authMiddleware, async (req, res) => {
       { new: true }
     );
 
-    res
-      .status(201)
-      .json({
-        status: "success",
-        data: changeTutorData,
-        message: "Password muaffaqiyatli ozgartirildi!",
-      });
+    res.status(201).json({
+      status: "success",
+      data: changeTutorData,
+      message: "Password muaffaqiyatli ozgartirildi!",
+    });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
-
-
 
 export default router;
