@@ -5,6 +5,7 @@ import adminModel from "../models/admin.model.js";
 import bcrypt from "bcrypt";
 import generateToken from "../utils/token.js";
 import StudentModel from "../models/student.model.js";
+import bcrypt from "bcrypt";
 const router = express.Router();
 
 router.post("/tutor/create", authMiddleware, async (req, res) => {
@@ -99,5 +100,54 @@ router.get("/tutor/my-students", authMiddleware, async (req, res) => {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
+
+router.post("/tutor/change-password", authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.userData;
+    const findTutor = await tutorModel.findById(userId);
+
+    if (!findTutor) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Bunday tutor topilmadi" });
+    }
+
+    const { confirmPassword, newPassword } = req.body;
+
+    const comparePassword = await bcrypt.compare(
+      confirmPassword,
+      findTutor.password
+    );
+    if (!comparePassword) {
+      return res
+        .status(401)
+        .json({ status: "error", message: "Password togri kelmadi" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    const changeTutorData = await tutorModel.findByIdAndUpdate(
+      findTutor,
+      {
+        $set: {
+          password: hashedPassword,
+        },
+      },
+      { new: true }
+    );
+
+    res
+      .status(201)
+      .json({
+        status: "success",
+        data: changeTutorData,
+        message: "Password muaffaqiyatli ozgartirildi!",
+      });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
+
 
 export default router;

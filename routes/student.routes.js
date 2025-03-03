@@ -68,7 +68,13 @@ router.get("/student/notification/:id", authMiddleware, async (req, res) => {
     });
     res.status(200).json({
       status: "success",
-      data: appartments.filter((c) => c.status != "Being checked"),
+      data: appartments
+        .filter((c) => c.status != "Being checked")
+        .map((item) => {
+          return {
+            status: item.status,
+          };
+        }),
     });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
