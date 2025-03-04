@@ -81,4 +81,26 @@ router.get("/student/notification/:id", authMiddleware, async (req, res) => {
   }
 });
 
+router.get("/student/profile", authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.userData;
+    const findStudent = await StudentModel.findById(userId);
+    if (!findStudent) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Bunday student topilmadi" });
+    }
+
+    const schema = {
+      gender: findStudent.gender,
+      province: findStudent.province.name,
+      image: findStudent.image,
+    };
+
+    res.status(200).json({ status: "success", data: schema });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
 export default router;

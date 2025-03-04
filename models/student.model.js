@@ -210,6 +210,10 @@ const studentSchema = new mongoose.Schema({
   hash: {
     type: String,
   },
+  gender: {
+    type: String,
+    default: "",
+  },
   role: {
     type: String,
     default: "student",

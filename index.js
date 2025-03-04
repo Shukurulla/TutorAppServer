@@ -5,8 +5,11 @@ import AppartmentRouter from "./routes/appartment.routes.js";
 import AdminRouter from "./routes/admin.routes.js";
 import TutorRouter from "./routes/tutor.routes.js";
 import StatisticsRouter from "./routes/statistics.routes.js";
+import FilledRouter from "./routes/detail.routes.js";
 import mongoose from "mongoose";
 import cors from "cors";
+import AppartmentModel from "./models/appartment.model.js";
+
 config();
 
 const app = express();
@@ -29,6 +32,7 @@ app.use(AppartmentRouter);
 app.use(AdminRouter);
 app.use(TutorRouter);
 app.use(StatisticsRouter);
+app.use(FilledRouter);
 app.get("/", async (req, res) => {
   res.json({ message: "hello" });
 });
