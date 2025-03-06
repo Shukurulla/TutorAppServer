@@ -63,6 +63,8 @@ router.post("/appartment/create", authMiddleware, async (req, res) => {
     await gazStove.mv(gazStovePath);
     await chimney.mv(chimneyPath);
 
+    const addition = req.body.addition || "";
+
     const newAppartment = new AppartmentModel({
       studentId,
       boilerImage: { url: `/public/images/${boilerImageName}` },
@@ -87,7 +89,7 @@ router.post("/appartment/create", authMiddleware, async (req, res) => {
     console.error("Xatolik:", error);
     res.status(500).json({
       status: "error",
-      message: "Serverda xatolik yuz berdi",
+      message: error.message,
     });
   }
 });
@@ -359,6 +361,28 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
     res
       .status(500)
       .json({ status: "error", message: "Serverda xatolik yuz berdi" });
+  }
+});
+
+router.delete("/appartment/clear", authMiddleware, async (req, res) => {
+  try {
+    const deletes = async () => {
+      try {
+        const appartments = await AppartmentModel.find();
+        for (let i = 0; i < appartments.length; i++) {
+          await AppartmentModel.findByIdAndDelete(appartments[i]._id);
+        }
+        res
+          .status(200)
+          .json({ status: "success", message: "Ijara malumotlari tozalandi" });
+      } catch (error) {
+        res.status(500).json({ status: "error", message: error.message });
+      }
+    };
+
+    deletes();
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
   }
 });
 
