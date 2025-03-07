@@ -63,8 +63,6 @@ router.post("/appartment/create", authMiddleware, async (req, res) => {
     await gazStove.mv(gazStovePath);
     await chimney.mv(chimneyPath);
 
-    const addition = req.body.addition || "";
-
     const newAppartment = new AppartmentModel({
       studentId,
       boilerImage: { url: `/public/images/${boilerImageName}` },
@@ -230,7 +228,6 @@ router.get(
 
       res.status(200).json({
         status: "success",
-        data: uniqueAppartments,
         statistics: statusPercentages,
       });
     } catch (error) {
@@ -255,6 +252,10 @@ router.get("/appartment/all-delete", async (req, res) => {
 router.get("/appartment/new", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
+    let { page = 1, limit = 20 } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
 
     // Tutorni topish
     const findTutor = await tutorModel.findById(userId);
@@ -264,7 +265,7 @@ router.get("/appartment/new", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "Bunday tutor topilmadi" });
     }
 
-    // O'sha fakultetga tegishli studentlarni topish
+    // Tutorning guruhiga tegishli studentlarni topish
     const findStudents = await StudentModel.find({
       "group.name": findTutor.group,
     });
@@ -276,16 +277,28 @@ router.get("/appartment/new", authMiddleware, async (req, res) => {
       });
     }
 
+    // "Being checked" statusidagi appartmentlarni topish
     const appartments = await AppartmentModel.find({
       current: true,
       status: "Being checked",
     });
 
+    // Tutor guruhidagi studentlarga tegishli appartmentlarni filterlash
     const filteredAppartments = appartments.filter((appartment) =>
-      findStudents.find((c) => c._id == appartment.studentId)
+      findStudents.find(
+        (c) => c._id.toString() === appartment.studentId.toString()
+      )
     );
-    const withStudent = filteredAppartments.map((item) => {
-      const student = findStudents.find((c) => c._id == item.studentId);
+
+    // Pagination hisoblash
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedData = filteredAppartments.slice(startIndex, endIndex);
+
+    const withStudent = paginatedData.map((item) => {
+      const student = findStudents.find(
+        (c) => c._id.toString() === item.studentId.toString()
+      );
       return {
         student: {
           full_name: student.full_name,
@@ -296,8 +309,25 @@ router.get("/appartment/new", authMiddleware, async (req, res) => {
         appartment: item,
       };
     });
-    res.json({ status: "success", data: withStudent });
+
+    // Next & Prev sahifalar
+    const baseUrl = `${req.protocol}://${req.get("host")}${
+      req.baseUrl
+    }/appartment/new`;
+    const next =
+      endIndex < filteredAppartments.length
+        ? `${baseUrl}?page=${page + 1}&limit=${limit}`
+        : null;
+    const prev = page > 1 ? `${baseUrl}?page=${page - 1}&limit=${limit}` : null;
+
+    res.json({
+      status: "success",
+      data: withStudent,
+      next: next,
+      prev: prev,
+    });
   } catch (error) {
+    console.error(error);
     res
       .status(500)
       .json({ status: "error", message: "Serverda xatolik yuz berdi" });
@@ -309,8 +339,12 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
     const { status } = req.params;
+    let { page = 1, limit = 20 } = req.query;
 
-    // Status tekshirish (OR `||` emas, AND `&&` ishlatamiz)
+    page = parseInt(page);
+    limit = parseInt(limit);
+
+    // Status tekshirish
     if (status !== "red" && status !== "yellow" && status !== "green") {
       return res
         .status(401)
@@ -342,10 +376,20 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
     });
 
     const filteredAppartments = appartments.filter((appartment) =>
-      findStudents.find((c) => c._id == appartment.studentId)
+      findStudents.find(
+        (c) => c._id.toString() === appartment.studentId.toString()
+      )
     );
-    const withStudent = filteredAppartments.map((item) => {
-      const student = findStudents.find((c) => c._id == item.studentId);
+
+    // Pagination hisoblash
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedData = filteredAppartments.slice(startIndex, endIndex);
+
+    const withStudent = paginatedData.map((item) => {
+      const student = findStudents.find(
+        (c) => c._id.toString() === item.studentId.toString()
+      );
       return {
         student: {
           full_name: student.full_name,
@@ -356,8 +400,25 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
         appartment: item,
       };
     });
-    res.json({ status: "success", data: withStudent });
+
+    // Next & Prev sahifalar
+    const baseUrl = `${req.protocol}://${req.get("host")}${
+      req.baseUrl
+    }/appartment/status/${status}`;
+    const next =
+      endIndex < filteredAppartments.length
+        ? `${baseUrl}?page=${page + 1}&limit=${limit}`
+        : null;
+    const prev = page > 1 ? `${baseUrl}?page=${page - 1}&limit=${limit}` : null;
+
+    res.json({
+      status: "success",
+      data: withStudent,
+      next: next,
+      prev: prev,
+    });
   } catch (error) {
+    console.error(error);
     res
       .status(500)
       .json({ status: "error", message: "Serverda xatolik yuz berdi" });

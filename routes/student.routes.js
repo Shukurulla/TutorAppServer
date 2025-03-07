@@ -103,4 +103,21 @@ router.get("/student/profile", authMiddleware, async (req, res) => {
   }
 });
 
+router.get("/student/by-group/:group", authMiddleware, async (req, res) => {
+  try {
+    const { group } = req.params;
+    const findStudents = await StudentModel.find({ "group.name": group });
+    if (!findStudents) {
+      return res.status(401).json({
+        status: "error",
+        message: "Bunday guruh studentlari topilmadi",
+      });
+    }
+
+    res.status(201).json({ status: "success", data: findStudents });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
 export default router;

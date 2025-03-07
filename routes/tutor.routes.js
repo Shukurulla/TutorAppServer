@@ -82,6 +82,10 @@ router.post("/tutor/login", async (req, res) => {
 router.get("/tutor/my-students", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
+    let { page = 1, limit = 20 } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
 
     const findTutor = await tutorModel.findById(userId);
     if (!findTutor) {
@@ -91,9 +95,36 @@ router.get("/tutor/my-students", authMiddleware, async (req, res) => {
     }
 
     const group = findTutor.group;
-    const findStudents = await StudentModel.find({ "group.name": group });
 
-    res.status(201).json({ status: "success", data: findStudents });
+    // Umumiy studentlar sonini olish
+    const totalStudents = await StudentModel.countDocuments({
+      "group.name": group,
+    });
+
+    // Studentlarni pagination bilan olish
+    const findStudents = await StudentModel.find({ "group.name": group })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    // Next & Prev sahifalar
+    const baseUrl = `${req.protocol}://${req.get("host")}${
+      req.baseUrl
+    }/tutor/my-students`;
+    const next =
+      page * limit < totalStudents
+        ? `${baseUrl}?page=${page + 1}&limit=${limit}`
+        : null;
+    const prev = page > 1 ? `${baseUrl}?page=${page - 1}&limit=${limit}` : null;
+
+    res.status(200).json({
+      status: "success",
+      data: findStudents,
+      page,
+      limit,
+      totalStudents,
+      next,
+      prev,
+    });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
   }
