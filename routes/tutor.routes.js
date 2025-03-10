@@ -67,6 +67,15 @@ router.post("/tutor/login", async (req, res) => {
         .json({ status: "error", message: "Bunday tutor topilmadi" });
     }
 
+    const students = await StudentModel.find();
+
+    const findStudents = findTutor.group.map((item) => {
+      return {
+        name: item.name,
+        studentCount: students.filter((c) => c.group.name == item.name).length,
+      };
+    });
+
     const compare = await bcrypt.compare(password, findTutor.password);
     if (!compare) {
       return res
@@ -75,7 +84,22 @@ router.post("/tutor/login", async (req, res) => {
     }
 
     const token = generateToken(findTutor._id);
-    res.status(200).json({ status: "success", data: findTutor, token });
+    const { _id, name, role, createdAt, updatedAt } = findTutor;
+    const data = {
+      _id,
+      login: findTutor.login,
+      name,
+      password: findTutor.password,
+      role,
+      createdAt,
+      updatedAt,
+      group: findStudents,
+    };
+    res.status(200).json({
+      status: "success",
+      data,
+      token,
+    });
   } catch (error) {
     res
       .status(error.status || 500)
