@@ -9,6 +9,7 @@ import FilledRouter from "./routes/detail.routes.js";
 import mongoose from "mongoose";
 import cors from "cors";
 import AppartmentModel from "./models/appartment.model.js";
+import tutorModel from "./models/tutor.model.js";
 
 config();
 

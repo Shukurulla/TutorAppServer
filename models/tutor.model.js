@@ -6,6 +6,10 @@ const tutorSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    name: {
+      type: String,
+      required: true,
+    },
     password: {
       type: String,
       required: true,
@@ -15,7 +19,7 @@ const tutorSchema = new mongoose.Schema(
       default: "tutor",
     },
     group: {
-      type: String,
+      type: [Object], // <-- Object emas, array sifatida belgilaymiz
       required: true,
     },
   },

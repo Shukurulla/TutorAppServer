@@ -2,6 +2,8 @@ import express from "express";
 import adminModel from "../models/admin.model.js";
 import bcrypt from "bcrypt";
 import generateToken from "../utils/token.js";
+import authMiddleware from "../middlewares/auth.middleware.js";
+import tutorModel from "../models/tutor.model.js";
 const router = express.Router();
 
 router.post("/admin/sign", async (req, res) => {
@@ -53,6 +55,15 @@ router.post("/admin/login", async (req, res) => {
     res
       .status(error.status || 500)
       .json({ status: "error", message: error.message });
+  }
+});
+
+router.get("/admin/tutors", authMiddleware, async (req, res) => {
+  try {
+    const tutors = await tutorModel.find();
+    res.status(201).json({ status: "success", data: tutors });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
   }
 });
 
