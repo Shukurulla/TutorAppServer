@@ -170,17 +170,21 @@ router.get(
           .json({ status: "error", message: "Bunday tutor topilmadi" });
       }
 
+      // Tutorning barcha guruhlarini olish
+      const tutorGroups = findTutor.group.map((g) => g.name);
+
       const findStudents = await StudentModel.find({
-        "group.name": findTutor.group,
+        "group.name": { $in: tutorGroups }, // Tutorning barcha guruhlariga tegishli studentlarni topish
       });
 
       const appartments = await AppartmentModel.find({ current: true });
-      if (!appartments) {
+      if (!appartments.length) {
         return res.json({
           message:
             "Sizning guruhingizdagi studentlar hali ijara malumotlarini qoshmagan",
         });
       }
+
       // Studentlarga tegishli unikal apartamentlarni yig‘ish
       const studentAppartments = findStudents
         .map((student) =>
@@ -189,6 +193,7 @@ router.get(
           )
         )
         .filter(Boolean); // Undefined bo'lganlarni olib tashlash
+
       const uniqueAppartments = Array.from(
         new Map(
           studentAppartments
@@ -228,7 +233,6 @@ router.get(
 
       res.status(200).json({
         status: "success",
-        data: uniqueAppartments,
         statistics: statusPercentages,
       });
     } catch (error) {
