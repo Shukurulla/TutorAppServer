@@ -8,8 +8,8 @@ import StatisticsRouter from "./routes/statistics.routes.js";
 import FilledRouter from "./routes/detail.routes.js";
 import mongoose from "mongoose";
 import cors from "cors";
-import AppartmentModel from "./models/appartment.model.js";
-import tutorModel from "./models/tutor.model.js";
+import path from "path";
+const __dirname = path.dirname(__filename);
 
 config();
 
@@ -28,6 +28,8 @@ app.use(
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use("/public", express.static(path.join(__dirname, "public")));
+
 app.use(StudentRouter);
 app.use(AppartmentRouter);
 app.use(AdminRouter);
