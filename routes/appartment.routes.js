@@ -321,15 +321,17 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
     const { status } = req.params;
+    let { page = 1, limit = 20 } = req.query;
 
-    // Statusni tekshiramiz
+    page = parseInt(page);
+    limit = parseInt(limit);
+
     if (!["red", "yellow", "green", "blue"].includes(status)) {
       return res
         .status(401)
         .json({ status: "error", message: "Bunday status mavjud emas" });
     }
 
-    // Tutorni topamiz
     const findTutor = await tutorModel.findById(userId);
     if (!findTutor) {
       return res
@@ -337,12 +339,10 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "Bunday tutor topilmadi" });
     }
 
-    // Tutorning barcha guruh nomlarini olish
     const tutorGroups = findTutor.group.map((g) => g.name);
 
-    // Studentlarni filtrlaymiz
     const findStudents = await StudentModel.find({
-      "group.name": { $in: tutorGroups }, // `$in` yordamida bir nechta guruhni tekshiramiz
+      "group.name": { $in: tutorGroups },
     });
 
     if (!findStudents.length) {
@@ -352,21 +352,25 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
       });
     }
 
-    // Faqat `current: true` va statusi mos keladigan apartamentlarni olish
     const appartments = await AppartmentModel.find({
       current: true,
-      status: status == "blue" ? "Being checked" : status,
+      status: status === "blue" ? "Being checked" : status,
+      studentId: { $in: findStudents.map((s) => s._id) },
+    })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    const total = await AppartmentModel.countDocuments({
+      current: true,
+      status: status === "blue" ? "Being checked" : status,
+      studentId: { $in: findStudents.map((s) => s._id) },
     });
 
-    // Student ID larni apartamentlar bilan solishtirish
-    const filteredAppartments = appartments.filter((appartment) =>
-      findStudents.some(
-        (c) => c._id.toString() === appartment.studentId.toString()
-      )
-    );
+    const totalPages = Math.ceil(total / limit);
+    const nextPage = page < totalPages ? page + 1 : null;
+    const prevPage = page > 1 ? page - 1 : null;
 
-    // Student va appartamentni birlashtirish
-    const withStudent = filteredAppartments.map((item) => {
+    const withStudent = appartments.map((item) => {
       const student = findStudents.find(
         (c) => c._id.toString() === item.studentId.toString()
       );
@@ -381,7 +385,18 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
       };
     });
 
-    res.json({ status: "success", data: withStudent });
+    res.json({
+      status: "success",
+      data: withStudent,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages,
+        nextPage,
+        prevPage,
+      },
+    });
   } catch (error) {
     res
       .status(500)

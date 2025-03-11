@@ -257,4 +257,46 @@ router.get("/tutor/students-group/:group", authMiddleware, async (req, res) => {
   }
 });
 
+router.get("/tutor/profile", authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.userData;
+    const findTutor = await tutorModel.findById(userId);
+    if (!findTutor) {
+      return res
+        .status(401)
+        .json({ status: "error", message: "Bunday tutor topilmadi" });
+    }
+
+    const students = await StudentModel.find();
+
+    const tutorFaculty = findTutor.group.map((item) => {
+      return {
+        name: item.name,
+        faculty: students.find((c) => c.group.name == item.name).faculty.name,
+      };
+    });
+
+    const { _id, login, name, password, role, createdAt, updatedAt } =
+      findTutor;
+
+    const tutorSchema = {
+      _id,
+      login,
+      name,
+      password,
+      role,
+      createdAt,
+      updatedAt,
+      group: tutorFaculty,
+    };
+
+    res.json({
+      status: "success",
+      data: tutorSchema,
+    });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
 export default router;
