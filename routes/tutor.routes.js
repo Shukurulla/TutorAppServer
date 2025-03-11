@@ -72,6 +72,8 @@ router.post("/tutor/login", async (req, res) => {
     const findStudents = findTutor.group.map((item) => {
       return {
         name: item.name,
+        faculty: students.filter((c) => c.group.name == item.name)[0].faculty
+          .name,
         studentCount: students.filter((c) => c.group.name == item.name).length,
       };
     });
