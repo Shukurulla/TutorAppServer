@@ -5,7 +5,15 @@ import generateToken from "../utils/token.js";
 import authMiddleware from "../middlewares/auth.middleware.js";
 import AppartmentModel from "../models/appartment.model.js";
 
+import fileUpload from "express-fileupload";
+import path from "path";
+import { fileURLToPath } from "url";
+
 const router = express.Router();
+router.use(fileUpload());
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 router.post("/student/sign", async (req, res) => {
   try {
@@ -94,10 +102,56 @@ router.get("/student/profile", authMiddleware, async (req, res) => {
     const schema = {
       gender: findStudent.gender,
       province: findStudent.province.name,
-      image: findStudent.image,
+      image: findStudent.image || null,
     };
 
     res.status(200).json({ status: "success", data: schema });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
+router.put("/student/profile", authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.userData;
+    const findStudent = await StudentModel.findById(userId);
+    if (!findStudent) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Bunday student topilmadi" });
+    }
+
+    const { gender } = req.body; // Genderni olib ko'ramiz
+    let imagePath = findStudent.image; // Oldingi rasmni saqlab qolish
+
+    // Agar foydalanuvchi yangi rasm yuborgan bo'lsa
+    if (req.files && req.files.image) {
+      const imageFile = req.files.image;
+      const fileExt = path.extname(imageFile.name);
+      const fileName = `${userId}${fileExt}`;
+      const uploadPath = path.join(
+        __dirname,
+        "../public/studentImages",
+        fileName
+      );
+
+      await imageFile.mv(uploadPath);
+      imagePath = `http://45.134.39.117:5050/public/studentImages/${fileName}`;
+    }
+
+    // Ma'lumotlarni yangilash
+    const student = await StudentModel.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          gender, // Gender yangilanadi
+          image: imagePath,
+        },
+      },
+      { new: true }
+    );
+
+    res.status(200).json({ status: "success", data: student });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
   }

@@ -312,14 +312,14 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
     const { userId } = req.userData;
     const { status } = req.params;
 
-    // Status tekshirish (OR `||` emas, AND `&&` ishlatamiz)
-    if (status !== "red" && status !== "yellow" && status !== "green") {
+    // Statusni tekshiramiz
+    if (!["red", "yellow", "green"].includes(status)) {
       return res
         .status(401)
         .json({ status: "error", message: "Bunday status mavjud emas" });
     }
 
-    // Tutorni topish
+    // Tutorni topamiz
     const findTutor = await tutorModel.findById(userId);
     if (!findTutor) {
       return res
@@ -327,27 +327,39 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "Bunday tutor topilmadi" });
     }
 
+    // Tutorning barcha guruh nomlarini olish
+    const tutorGroups = findTutor.group.map((g) => g.name);
+
+    // Studentlarni filtrlaymiz
     const findStudents = await StudentModel.find({
-      "group.name": findTutor.group,
+      "group.name": { $in: tutorGroups }, // `$in` yordamida bir nechta guruhni tekshiramiz
     });
 
     if (!findStudents.length) {
       return res.status(400).json({
         status: "error",
-        message: "Bu guruhda studentlar topilmadi",
+        message: "Bu guruhlarda studentlar topilmadi",
       });
     }
 
+    // Faqat `current: true` va statusi mos keladigan apartamentlarni olish
     const appartments = await AppartmentModel.find({
       current: true,
       status: status,
     });
 
+    // Student ID larni apartamentlar bilan solishtirish
     const filteredAppartments = appartments.filter((appartment) =>
-      findStudents.find((c) => c._id == appartment.studentId)
+      findStudents.some(
+        (c) => c._id.toString() === appartment.studentId.toString()
+      )
     );
+
+    // Student va appartamentni birlashtirish
     const withStudent = filteredAppartments.map((item) => {
-      const student = findStudents.find((c) => c._id == item.studentId);
+      const student = findStudents.find(
+        (c) => c._id.toString() === item.studentId.toString()
+      );
       return {
         student: {
           full_name: student.full_name,
@@ -358,6 +370,7 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
         appartment: item,
       };
     });
+
     res.json({ status: "success", data: withStudent });
   } catch (error) {
     res
