@@ -5,6 +5,7 @@ import adminModel from "../models/admin.model.js";
 import bcrypt from "bcrypt";
 import generateToken from "../utils/token.js";
 import StudentModel from "../models/student.model.js";
+import AppartmentModel from "../models/appartment.model.js";
 const router = express.Router();
 
 router.post("/tutor/create", authMiddleware, async (req, res) => {
@@ -201,21 +202,43 @@ router.get("/tutor/students-group/:group", authMiddleware, async (req, res) => {
     const { group } = req.params;
     const { page = 1, limit = 20 } = req.query;
 
-    // Sahifani son va minimum qiymatlar bilan tekshirish
     const pageNumber = Math.max(1, parseInt(page, 10) || 1);
     const limitNumber = Math.max(1, parseInt(limit, 10) || 20);
 
     const totalCount = await StudentModel.countDocuments({
       "group.name": group,
-    }); // Umumiy soni
-    const totalPages = Math.ceil(totalCount / limitNumber); // Jami sahifalar
+    });
+    const totalPages = Math.ceil(totalCount / limitNumber);
+
+    // 🛠 **Appartment-larni status + location bilan olish**
+    const findAppartments = await AppartmentModel.find().select(
+      "status studentId location"
+    );
 
     const findStudents = await StudentModel.find({ "group.name": group })
       .select(
-        "group.name faculty.name first_name second_name third_name full_name short_name university image address role"
+        "group.name province gender faculty.name first_name second_name third_name full_name short_name university image address role"
       )
-      .skip((pageNumber - 1) * limitNumber) // Sahifa uchun qoldirish
-      .limit(limitNumber); // Limit bo‘yicha natijalarni cheklash
+      .skip((pageNumber - 1) * limitNumber)
+      .limit(limitNumber);
+
+    const studentsWithStatus = findStudents.map((student) => {
+      const studentAppartment = findAppartments.find(
+        (appartment) =>
+          appartment.studentId.toString() === student._id.toString()
+      );
+
+      return {
+        ...student.toObject(),
+        status: studentAppartment
+          ? studentAppartment.status === "Being checked"
+            ? "blue"
+            : studentAppartment.status
+          : "blue",
+        location: studentAppartment?.location || null, // ✅ Endi location to'g'ri ishlaydi
+        hasFormFilled: studentAppartment ? "true" : "false",
+      };
+    });
 
     res.json({
       status: "success",
@@ -223,11 +246,11 @@ router.get("/tutor/students-group/:group", authMiddleware, async (req, res) => {
       limit: limitNumber,
       totalStudents: totalCount,
       totalPages: totalPages,
-      hasNextPage: pageNumber < totalPages, // Keyingi sahifa bormi?
-      hasPrevPage: pageNumber > 1, // Oldingi sahifa bormi?
+      hasNextPage: pageNumber < totalPages,
+      hasPrevPage: pageNumber > 1,
       nextPage: pageNumber < totalPages ? pageNumber + 1 : null,
       prevPage: pageNumber > 1 ? pageNumber - 1 : null,
-      data: findStudents,
+      data: studentsWithStatus,
     });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });

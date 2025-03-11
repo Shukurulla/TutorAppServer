@@ -6,7 +6,7 @@ import AppartmentModel from "../models/appartment.model.js";
 
 const router = express.Router();
 
-router.post("/notification", authMiddleware, async (req, res) => {
+router.post("/notification/report", authMiddleware, async (req, res) => {
   try {
     const { studentId, message, status, appartmentId } = req.body;
     const findStudent = await StudentModel.findById(studentId);
@@ -25,6 +25,35 @@ router.post("/notification", authMiddleware, async (req, res) => {
     }
 
     await AppartmentModel.findByIdAndDelete(findAppartment._id);
+
+    const notification = await NotificationModel.create({
+      message,
+      status,
+      studentId,
+    });
+
+    res.status(200).json({ status: "success", data: notification });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+router.post("/notification/push", authMiddleware, async (req, res) => {
+  try {
+    const { studentId, message, status, appartmentId } = req.body;
+    const findStudent = await StudentModel.findById(studentId);
+    if (!findStudent) {
+      return res.status(400).json({
+        status: "error",
+        message: "Bunday student topilmadi",
+      });
+    }
+    const findAppartment = await AppartmentModel.findById(appartmentId);
+    if (!findAppartment) {
+      return res.status(400).json({
+        status: "error",
+        message: "Bunday ijara malumotlari topilmadi",
+      });
+    }
 
     const notification = await NotificationModel.create({
       message,

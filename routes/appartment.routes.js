@@ -181,11 +181,11 @@ router.get(
       if (!appartments.length) {
         return res.json({
           message:
-            "Sizning guruhingizdagi studentlar hali ijara malumotlarini qoshmagan",
+            "Sizning guruhingizdagi studentlar hali ijara ma'lumotlarini qo‘shmagan",
         });
       }
 
-      // Studentlarga tegishli unikal apartamentlarni yig‘ish
+      // Studentlarga tegishli apartamentlarni yig‘ish
       const studentAppartments = findStudents
         .map((student) =>
           appartments.find(
@@ -196,9 +196,10 @@ router.get(
 
       const uniqueAppartments = Array.from(
         new Map(
-          studentAppartments
-            .filter((c) => c.status !== "Being checked")
-            .map((appartment) => [appartment._id.toString(), appartment])
+          studentAppartments.map((appartment) => [
+            appartment._id.toString(),
+            appartment,
+          ])
         ).values()
       );
 
@@ -206,10 +207,14 @@ router.get(
       const totalCount = uniqueAppartments.length;
       const statusCounts = uniqueAppartments.reduce(
         (acc, { status }) => {
-          acc[status] = (acc[status] || 0) + 1;
+          if (status === "Being checked") {
+            acc.blue += 1;
+          } else {
+            acc[status] = (acc[status] || 0) + 1;
+          }
           return acc;
         },
-        { green: 0, yellow: 0, red: 0 }
+        { green: 0, yellow: 0, red: 0, blue: 0 }
       );
 
       const statusPercentages = totalCount
@@ -228,8 +233,13 @@ router.get(
               percent: ((statusCounts.red / totalCount) * 100).toFixed(2) + "%",
               total: statusCounts.red,
             },
+            blue: {
+              percent:
+                ((statusCounts.blue / totalCount) * 100).toFixed(2) + "%",
+              total: statusCounts.blue,
+            },
           }
-        : { green: "0%", yellow: "0%", red: "0%" };
+        : { green: "0%", yellow: "0%", red: "0%", blue: "0%" };
 
       res.status(200).json({
         status: "success",
@@ -266,11 +276,9 @@ router.get("/appartment/new", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "Bunday tutor topilmadi" });
     }
 
-    const tutorGroups = findTutor.group.map((g) => g.name);
-
-    // Studentlarni filtrlaymiz
+    // O'sha fakultetga tegishli studentlarni topish
     const findStudents = await StudentModel.find({
-      "group.name": { $in: tutorGroups }, // `$in` yordamida bir nechta guruhni tekshiramiz
+      "group.name": findTutor.group,
     });
 
     if (!findStudents.length) {
@@ -315,7 +323,7 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
     const { status } = req.params;
 
     // Statusni tekshiramiz
-    if (!["red", "yellow", "green"].includes(status)) {
+    if (!["red", "yellow", "green", "blue"].includes(status)) {
       return res
         .status(401)
         .json({ status: "error", message: "Bunday status mavjud emas" });
@@ -347,7 +355,7 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
     // Faqat `current: true` va statusi mos keladigan apartamentlarni olish
     const appartments = await AppartmentModel.find({
       current: true,
-      status: status,
+      status: status == "blue" ? "Being checked" : status,
     });
 
     // Student ID larni apartamentlar bilan solishtirish
