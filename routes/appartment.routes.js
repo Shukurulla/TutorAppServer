@@ -266,9 +266,11 @@ router.get("/appartment/new", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "Bunday tutor topilmadi" });
     }
 
-    // O'sha fakultetga tegishli studentlarni topish
+    const tutorGroups = findTutor.group.map((g) => g.name);
+
+    // Studentlarni filtrlaymiz
     const findStudents = await StudentModel.find({
-      "group.name": findTutor.group,
+      "group.name": { $in: tutorGroups }, // `$in` yordamida bir nechta guruhni tekshiramiz
     });
 
     if (!findStudents.length) {

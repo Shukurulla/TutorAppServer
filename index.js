@@ -6,10 +6,12 @@ import AdminRouter from "./routes/admin.routes.js";
 import TutorRouter from "./routes/tutor.routes.js";
 import StatisticsRouter from "./routes/statistics.routes.js";
 import FilledRouter from "./routes/detail.routes.js";
+import NotificationRouter from "./routes/notification.routes.js";
 import mongoose from "mongoose";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
+import NotificationModel from "./models/notification.model.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -38,6 +40,7 @@ app.use(AdminRouter);
 app.use(TutorRouter);
 app.use(StatisticsRouter);
 app.use(FilledRouter);
+app.use(NotificationRouter);
 app.get("/", async (req, res) => {
   res.json({ message: "hello" });
 });
