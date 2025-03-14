@@ -8,8 +8,8 @@ const router = express.Router();
 
 router.post("/notification/report", authMiddleware, async (req, res) => {
   try {
-    const { studentId, message, status, appartmentId } = req.body;
-    const findStudent = await StudentModel.findById(studentId);
+    const { userId, message, status, appartmentId } = req.body;
+    const findStudent = await StudentModel.findById(userId);
     if (!findStudent) {
       return res.status(400).json({
         status: "error",
@@ -29,7 +29,7 @@ router.post("/notification/report", authMiddleware, async (req, res) => {
     const notification = await NotificationModel.create({
       message,
       status,
-      studentId,
+      userId,
     });
 
     res.status(200).json({ status: "success", data: notification });
@@ -39,8 +39,8 @@ router.post("/notification/report", authMiddleware, async (req, res) => {
 });
 router.post("/notification/push", authMiddleware, async (req, res) => {
   try {
-    const { studentId, message, status, appartmentId } = req.body;
-    const findStudent = await StudentModel.findById(studentId);
+    const { userId, message, status, appartmentId } = req.body;
+    const findStudent = await StudentModel.findById(userId);
     if (!findStudent) {
       return res.status(400).json({
         status: "error",
@@ -58,7 +58,7 @@ router.post("/notification/push", authMiddleware, async (req, res) => {
     const notification = await NotificationModel.create({
       message,
       status,
-      studentId,
+      userId,
     });
 
     res.status(200).json({ status: "success", data: notification });
@@ -85,33 +85,33 @@ router.delete("/notification/:id", authMiddleware, async (req, res) => {
   }
 });
 
-router.get("/notification/:studentId", async (req, res) => {
+router.get("/notification/:userId", async (req, res) => {
   try {
-    const { studentId } = req.params;
-    const findStudent = await StudentModel.findById(studentId);
+    const { userId } = req.params;
+    const findStudent = await StudentModel.findById(userId);
     if (!findStudent) {
       return res.status(400).json({
         status: "error",
         message: "Bunday student topilmadi",
       });
     }
-    const findNotifications = await NotificationModel.find({ studentId });
+    const findNotifications = await NotificationModel.find({ userId });
     res.json({ status: "success", data: findNotifications });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
-router.put("/notification/:studentId/read", async (req, res) => {
+router.put("/notification/:userId/read", async (req, res) => {
   try {
-    const { studentId } = req.params;
-    const findStudent = await StudentModel.findById(studentId);
+    const { userId } = req.params;
+    const findStudent = await StudentModel.findById(userId);
     if (!findStudent) {
       return res.status(400).json({
         status: "error",
         message: "Bunday student topilmadi",
       });
     }
-    const findNotifications = await NotificationModel.find({ studentId });
+    const findNotifications = await NotificationModel.find({ userId });
     for (let i = 0; i < findNotifications.length; i++) {
       await NotificationModel.findByIdAndUpdate(
         findNotifications[i]._id,

@@ -264,51 +264,24 @@ router.get("/appartment/all-delete", async (req, res) => {
   }
 });
 
-router.get("/appartment/new", authMiddleware, async (req, res) => {
+router.get("/appartment/new/:id", authMiddleware, async (req, res) => {
   try {
-    const { userId } = req.userData;
+    const { id } = req.params;
 
-    // Tutorni topish
-    const findTutor = await tutorModel.findById(userId);
-    if (!findTutor) {
+    const findStudent = await StudentModel.findById(id).select("_id");
+
+    if (!findStudent) {
       return res
-        .status(400)
-        .json({ status: "error", message: "Bunday tutor topilmadi" });
+        .status(401)
+        .json({ status: "error", message: "Bunday student topilmadi" });
     }
 
-    // O'sha fakultetga tegishli studentlarni topish
-    const findStudents = await StudentModel.find({
-      "group.name": findTutor.group,
-    });
-
-    if (!findStudents.length) {
-      return res.status(400).json({
-        status: "error",
-        message: "Bu guruhda studentlar topilmadi",
-      });
-    }
-
-    const appartments = await AppartmentModel.find({
-      current: true,
+    const findAppartment = await AppartmentModel.find({
+      studentId: id,
       status: "Being checked",
     });
 
-    const filteredAppartments = appartments.filter((appartment) =>
-      findStudents.find((c) => c._id == appartment.studentId)
-    );
-    const withStudent = filteredAppartments.map((item) => {
-      const student = findStudents.find((c) => c._id == item.studentId);
-      return {
-        student: {
-          full_name: student.full_name,
-          image: student.image,
-          faculty: student.faculty,
-          group: student.group,
-        },
-        appartment: item,
-      };
-    });
-    res.json({ status: "success", data: withStudent });
+    res.json({ status: "success", data: findAppartment });
   } catch (error) {
     res
       .status(500)

@@ -10,8 +10,8 @@ import NotificationRouter from "./routes/notification.routes.js";
 import mongoose from "mongoose";
 import cors from "cors";
 import path from "path";
+import fileUpload from "express-fileupload";
 import { fileURLToPath } from "url";
-import NotificationModel from "./models/notification.model.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -32,6 +32,7 @@ app.use(
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(fileUpload());
 app.use("/public", express.static(path.join(__dirname, "public")));
 
 app.use(StudentRouter);
@@ -41,6 +42,7 @@ app.use(TutorRouter);
 app.use(StatisticsRouter);
 app.use(FilledRouter);
 app.use(NotificationRouter);
+
 app.get("/", async (req, res) => {
   res.json({ message: "hello" });
 });

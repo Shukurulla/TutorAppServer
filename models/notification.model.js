@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const notificationSchema = new mongoose.Schema(
   {
-    studentId: {
+    userId: {
       type: String,
       required: true,
     },
@@ -16,7 +16,6 @@ const notificationSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      required: true,
     },
   },
   {

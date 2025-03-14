@@ -181,6 +181,29 @@ router.get("/statistics/region", authMiddleware, async (req, res) => {
   }
 });
 
+router.get("/appartment/student-info/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const findAppartment = await AppartmentModel.findById(id);
+    if (!findAppartment) {
+      return res.status(401).json({
+        status: "error",
+        message: "Bunday ijara malumotlari topilmadi",
+      });
+    }
+    const findStudent = await StudentModel.findById(
+      findAppartment.studentId
+    ).select("image second_name province level first_name");
+    const dataSchema = {
+      appartment: findAppartment,
+      student: findStudent,
+    };
+    res.status(200).json({ status: "success", data: dataSchema });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
 router.get("/statistics/students/all", async (req, res) => {
   try {
     const students = await StudentModel.find();

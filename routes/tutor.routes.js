@@ -6,7 +6,19 @@ import bcrypt from "bcrypt";
 import generateToken from "../utils/token.js";
 import StudentModel from "../models/student.model.js";
 import AppartmentModel from "../models/appartment.model.js";
+import path from "path";
+import fs from "fs";
+
+import fileUpload from "express-fileupload";
+import { fileURLToPath } from "url";
+import NotificationModel from "../models/notification.model.js";
+
 const router = express.Router();
+
+router.use(fileUpload());
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 router.post("/tutor/create", authMiddleware, async (req, res) => {
   try {
@@ -182,6 +194,7 @@ router.post("/tutor/change-password", authMiddleware, async (req, res) => {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
+
 router.get("/tutor/groups", authMiddleware, async (req, res) => {
   try {
     const findGroups = await StudentModel.find().select("group");
@@ -294,6 +307,89 @@ router.get("/tutor/profile", authMiddleware, async (req, res) => {
       status: "success",
       data: tutorSchema,
     });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
+router.put("/tutor/update/:id", async (req, res) => {
+  try {
+    console.log("Request Files:", req.files); // Debugging
+    console.log("Request Body:", req.body); // Debugging
+
+    const { id } = req.params;
+    const tutor = await tutorModel.findById(id);
+    if (!tutor) return res.status(404).json({ message: "Tutor topilmadi" });
+
+    const { login, name, phone, password, role, group } = req.body;
+    const updates = {};
+
+    if (login) updates.login = login;
+    if (name) updates.name = name;
+    if (phone) updates.phone = phone;
+    if (password) updates.password = password;
+    if (role) updates.role = role;
+    if (group) updates.group = JSON.parse(group);
+
+    if (req.files && req.files.image) {
+      const imageFile = req.files.image;
+      const allowedTypes = ["image/jpeg", "image/png", "image/gif"];
+      if (!allowedTypes.includes(imageFile.mimetype)) {
+        return res
+          .status(400)
+          .json({ message: "Faqat rasm fayllari qabul qilinadi" });
+      }
+
+      const fileExt = path.extname(imageFile.name);
+      const fileName = `${id}${fileExt}`;
+      const uploadDir = path.join(__dirname, "../public/images");
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      const uploadPath = path.join(uploadDir, fileName);
+      await imageFile.mv(uploadPath);
+      updates.image = `http://45.134.39.117:5050/public/images/${fileName}`;
+    }
+
+    const updatedTutor = await tutorModel.findByIdAndUpdate(id, updates, {
+      new: true,
+    });
+
+    res.status(200).json({ message: "Tutor yangilandi", tutor: updatedTutor });
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).json({ message: "Serverda xatolik", error });
+  }
+});
+
+router.post("/tutor/notification", authMiddleware, async (req, res) => {
+  try {
+    const { userId, message } = req.body;
+    const findTutor = await tutorModel.findById(userId);
+    if (!findTutor) {
+      return res
+        .status(401)
+        .json({ status: "error", message: "Bunday tutor topilmadi" });
+    }
+    const notification = await NotificationModel.create({ userId, message });
+    res.json({ status: "success", data: notification });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
+router.get("/tutor/notification/:id", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const findTutor = await tutorModel.findById(id);
+    if (!findTutor) {
+      return res
+        .status(401)
+        .json({ status: "error", message: "Bunday tutor topilmadi" });
+    }
+    const notification = await NotificationModel.find({ userId: id });
+    res.json({ status: "success", data: notification });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
   }
