@@ -129,7 +129,8 @@ router.put("/student/profile", authMiddleware, async (req, res) => {
     if (req.files && req.files.image) {
       const imageFile = req.files.image;
       const fileExt = path.extname(imageFile.name);
-      const fileName = `${userId}${fileExt}`;
+      const now = Date.now();
+      const fileName = `${userId}${fileExt}${now}`;
       const uploadPath = path.join(
         __dirname,
         "../public/studentImages",
