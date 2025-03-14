@@ -289,8 +289,17 @@ router.get("/tutor/profile", authMiddleware, async (req, res) => {
       };
     });
 
-    const { _id, login, name, password, role, createdAt, updatedAt } =
-      findTutor;
+    const {
+      _id,
+      login,
+      name,
+      password,
+      image,
+      phone,
+      role,
+      createdAt,
+      updatedAt,
+    } = findTutor;
 
     const tutorSchema = {
       _id,
@@ -298,6 +307,8 @@ router.get("/tutor/profile", authMiddleware, async (req, res) => {
       name,
       password,
       role,
+      image,
+      phone,
       createdAt,
       updatedAt,
       group: tutorFaculty,
@@ -309,57 +320,6 @@ router.get("/tutor/profile", authMiddleware, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
-  }
-});
-
-router.put("/tutor/update/:id", async (req, res) => {
-  try {
-    console.log("Request Files:", req.files); // Debugging
-    console.log("Request Body:", req.body); // Debugging
-
-    const { id } = req.params;
-    const tutor = await tutorModel.findById(id);
-    if (!tutor) return res.status(404).json({ message: "Tutor topilmadi" });
-
-    const { login, name, phone, password, role, group } = req.body;
-    const updates = {};
-
-    if (login) updates.login = login;
-    if (name) updates.name = name;
-    if (phone) updates.phone = phone;
-    if (password) updates.password = password;
-    if (role) updates.role = role;
-    if (group) updates.group = JSON.parse(group);
-
-    if (req.files && req.files.image) {
-      const imageFile = req.files.image;
-      const allowedTypes = ["image/jpeg", "image/png", "image/gif"];
-      if (!allowedTypes.includes(imageFile.mimetype)) {
-        return res
-          .status(400)
-          .json({ message: "Faqat rasm fayllari qabul qilinadi" });
-      }
-
-      const fileExt = path.extname(imageFile.name);
-      const fileName = `${id}${fileExt}`;
-      const uploadDir = path.join(__dirname, "../public/images");
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-
-      const uploadPath = path.join(uploadDir, fileName);
-      await imageFile.mv(uploadPath);
-      updates.image = `http://45.134.39.117:5050/public/images/${fileName}`;
-    }
-
-    const updatedTutor = await tutorModel.findByIdAndUpdate(id, updates, {
-      new: true,
-    });
-
-    res.status(200).json({ message: "Tutor yangilandi", tutor: updatedTutor });
-  } catch (error) {
-    console.error("Error:", error);
-    res.status(500).json({ message: "Serverda xatolik", error });
   }
 });
 
@@ -394,5 +354,52 @@ router.get("/tutor/notification/:id", authMiddleware, async (req, res) => {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
+
+// router.put("/tutor/profile", authMiddleware, async (req, res) => {
+//   try {
+//     const { userId } = req.userData;
+//     const findTutor = await tutorModel.findById(userId);
+//     if (!findTutor) {
+//       return res
+//         .status(400)
+//         .json({ status: "error", message: "Bunday tutor topilmadi" });
+//     }
+
+//     const updateFields = {};
+//     const { login, name, phone, group } = req.body;
+//     if (login) updateFields.login = login;
+//     if (name) updateFields.name = name;
+//     if (phone) updateFields.phone = phone;
+//     if (group) updateFields.group = JSON.parse(group);
+
+//     // Fayl yuklangan bo'lsa, uni saqlaymiz
+//     if (req.files && req.files.image) {
+//       const imageFile = req.files.image;
+//       const allowedTypes = ["image/jpeg", "image/png", "image/gif"];
+//       if (!allowedTypes.includes(imageFile.mimetype)) {
+//         return res
+//           .status(400)
+//           .json({ message: "Faqat rasm fayllari qabul qilinadi" });
+//       }
+
+//       const fileExt = path.extname(imageFile.name);
+//       const fileName = `${userId}${fileExt}`;
+//       const uploadPath = path.join(__dirname, "../public/images", fileName);
+//       await imageFile.mv(uploadPath);
+//       updateFields.image = `http://45.134.39.117:5050/public/images/${fileName}`;
+//     }
+
+//     // Faqat kerakli joyni o'zgartirish uchun $set ishlatamiz
+//     const updatedTutor = await tutorModel.findByIdAndUpdate(
+//       userId,
+//       { $set: updateFields },
+//       { new: true }
+//     );
+
+//     res.status(200).json({ message: "Tutor yangilandi", tutor: updatedTutor });
+//   } catch (error) {
+//     res.status(500).json({ status: "error", message: error.message });
+//   }
+// });
 
 export default router;

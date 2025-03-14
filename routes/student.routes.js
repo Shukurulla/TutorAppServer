@@ -8,6 +8,7 @@ import AppartmentModel from "../models/appartment.model.js";
 import fileUpload from "express-fileupload";
 import path from "path";
 import { fileURLToPath } from "url";
+import tutorModel from "../models/tutor.model.js";
 
 const router = express.Router();
 router.use(fileUpload());

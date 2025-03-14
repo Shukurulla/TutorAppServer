@@ -12,6 +12,9 @@ import cors from "cors";
 import path from "path";
 import fileUpload from "express-fileupload";
 import { fileURLToPath } from "url";
+import tutorModel from "./models/tutor.model.js";
+import authMiddleware from "./middlewares/auth.middleware.js";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -32,7 +35,6 @@ app.use(
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(fileUpload());
 app.use("/public", express.static(path.join(__dirname, "public")));
 
 app.use(StudentRouter);
