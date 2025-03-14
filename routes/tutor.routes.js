@@ -355,51 +355,52 @@ router.get("/tutor/notification/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// router.put("/tutor/profile", authMiddleware, async (req, res) => {
-//   try {
-//     const { userId } = req.userData;
-//     const findTutor = await tutorModel.findById(userId);
-//     if (!findTutor) {
-//       return res
-//         .status(400)
-//         .json({ status: "error", message: "Bunday tutor topilmadi" });
-//     }
+router.put("/tutor/profile", authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.userData;
+    const findTutor = await tutorModel.findById(userId);
+    if (!findTutor) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Bunday tutor topilmadi" });
+    }
 
-//     const updateFields = {};
-//     const { login, name, phone, group } = req.body;
-//     if (login) updateFields.login = login;
-//     if (name) updateFields.name = name;
-//     if (phone) updateFields.phone = phone;
-//     if (group) updateFields.group = JSON.parse(group);
+    const updateFields = {};
+    const { login, name, phone, group } = req.body;
+    if (login) updateFields.login = login;
+    if (name) updateFields.name = name;
+    if (phone) updateFields.phone = phone;
+    if (group) updateFields.group = JSON.parse(group);
 
-//     // Fayl yuklangan bo'lsa, uni saqlaymiz
-//     if (req.files && req.files.image) {
-//       const imageFile = req.files.image;
-//       const allowedTypes = ["image/jpeg", "image/png", "image/gif"];
-//       if (!allowedTypes.includes(imageFile.mimetype)) {
-//         return res
-//           .status(400)
-//           .json({ message: "Faqat rasm fayllari qabul qilinadi" });
-//       }
+    // Fayl yuklangan bo'lsa, uni saqlaymiz
+    if (req.files && req.files.image) {
+      const imageFile = req.files.image;
+      const allowedTypes = ["image/jpeg", "image/png", "image/gif"];
+      if (!allowedTypes.includes(imageFile.mimetype)) {
+        return res
+          .status(400)
+          .json({ message: "Faqat rasm fayllari qabul qilinadi" });
+      }
 
-//       const fileExt = path.extname(imageFile.name);
-//       const fileName = `${userId}${fileExt}`;
-//       const uploadPath = path.join(__dirname, "../public/images", fileName);
-//       await imageFile.mv(uploadPath);
-//       updateFields.image = `http://45.134.39.117:5050/public/images/${fileName}`;
-//     }
+      const fileExt = path.extname(imageFile.name);
+      const now = Date.now();
+      const fileName = `${now}${userId}${fileExt}`;
+      const uploadPath = path.join(__dirname, "../public/images", fileName);
+      await imageFile.mv(uploadPath);
+      updateFields.image = `http://45.134.39.117:5050/public/images/${fileName}`;
+    }
 
-//     // Faqat kerakli joyni o'zgartirish uchun $set ishlatamiz
-//     const updatedTutor = await tutorModel.findByIdAndUpdate(
-//       userId,
-//       { $set: updateFields },
-//       { new: true }
-//     );
+    // Faqat kerakli joyni o'zgartirish uchun $set ishlatamiz
+    const updatedTutor = await tutorModel.findByIdAndUpdate(
+      userId,
+      { $set: updateFields },
+      { new: true }
+    );
 
-//     res.status(200).json({ message: "Tutor yangilandi", tutor: updatedTutor });
-//   } catch (error) {
-//     res.status(500).json({ status: "error", message: error.message });
-//   }
-// });
+    res.status(200).json({ message: "Tutor yangilandi", tutor: updatedTutor });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
 
 export default router;

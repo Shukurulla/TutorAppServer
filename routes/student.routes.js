@@ -1,21 +1,53 @@
 import express from "express";
-import StudentModel from "../models/student.model.js";
-import axios from "axios";
-import generateToken from "../utils/token.js";
-import authMiddleware from "../middlewares/auth.middleware.js";
-import AppartmentModel from "../models/appartment.model.js";
-
-import fileUpload from "express-fileupload";
-import path from "path";
-import { fileURLToPath } from "url";
 import tutorModel from "../models/tutor.model.js";
+import authMiddleware from "../middlewares/auth.middleware.js";
+import adminModel from "../models/admin.model.js";
+import bcrypt from "bcrypt";
+import generateToken from "../utils/token.js";
+import StudentModel from "../models/student.model.js";
+import AppartmentModel from "../models/appartment.model.js";
+import path from "path";
+import fs from "fs";
+import multer from "multer"; // Import multer
+import { fileURLToPath } from "url";
+import NotificationModel from "../models/notification.model.js";
 
 const router = express.Router();
-router.use(fileUpload());
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Multer Configuration
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, "../public/images");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir); // Save files to the "public/images" directory
+  },
+  filename: (req, file, cb) => {
+    const userId = req.userData.userId; // Get the tutor's ID from the request
+    const fileExt = path.extname(file.originalname); // Get the file extension
+    const fileName = `${Date.now()}_${userId}${fileExt}`; // Create a unique filename
+    cb(null, fileName);
+  },
+});
+
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = ["image/jpeg", "image/png", "image/gif"];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true); // Accept the file
+  } else {
+    cb(new Error("Faqat rasm fayllari qabul qilinadi"), false); // Reject the file
+  }
+};
+
+const upload = multer({
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: { fileSize: 50 * 1024 * 1024 }, // Limit file size to 50MB
+});
 router.post("/student/sign", async (req, res) => {
   try {
     const { login, password } = req.body;
@@ -111,52 +143,60 @@ router.get("/student/profile", authMiddleware, async (req, res) => {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
+router.put(
+  "/tutor/profile",
+  authMiddleware,
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      const { userId } = req.userData;
+      const findTutor = await tutorModel.findById(userId);
+      if (!findTutor) {
+        return res
+          .status(400)
+          .json({ status: "error", message: "Bunday tutor topilmadi" });
+      }
 
-router.put("/student/profile", authMiddleware, async (req, res) => {
-  try {
-    const { userId } = req.userData;
-    const findStudent = await StudentModel.findById(userId);
-    if (!findStudent) {
-      return res
-        .status(400)
-        .json({ status: "error", message: "Bunday student topilmadi" });
-    }
+      const updateFields = {};
+      const { login, name, phone, group } = req.body;
+      if (login) updateFields.login = login;
+      if (name) updateFields.name = name;
+      if (phone) updateFields.phone = phone;
+      if (group) updateFields.group = JSON.parse(group);
 
-    const { gender } = req.body; // Genderni olib ko'ramiz
-    let imagePath = findStudent.image; // Oldingi rasmni saqlab qolish
+      // Handle file upload with Multer
+      if (req.file) {
+        const imageUrl = `http://45.134.39.117:5050/public/images/${req.file.filename}`;
+        updateFields.image = imageUrl;
 
-    // Agar foydalanuvchi yangi rasm yuborgan bo'lsa
-    if (req.files && req.files.image) {
-      const imageFile = req.files.image;
-      const fileExt = path.extname(imageFile.name);
-      const now = Date.now();
-      const fileName = `${now}${userId}${fileExt}`;
-      const uploadPath = path.join(
-        __dirname,
-        "../public/studentImages",
-        fileName
+        // Delete the old image if it exists
+        if (findTutor.image && !findTutor.image.includes("default-icon")) {
+          const oldImagePath = path.join(
+            __dirname,
+            "../public/images",
+            findTutor.image.split("/public/images/")[1]
+          );
+          if (fs.existsSync(oldImagePath)) {
+            fs.unlinkSync(oldImagePath);
+          }
+        }
+      }
+
+      // Update the tutor's profile
+      const updatedTutor = await tutorModel.findByIdAndUpdate(
+        userId,
+        { $set: updateFields },
+        { new: true }
       );
 
-      await imageFile.mv(uploadPath);
-      imagePath = `http://45.134.39.117:5050/public/studentImages/${fileName}`;
+      res
+        .status(200)
+        .json({ message: "Tutor yangilandi", tutor: updatedTutor });
+    } catch (error) {
+      console.error("Error:", error);
+      res.status(500).json({ status: "error", message: error.message });
     }
-
-    // Ma'lumotlarni yangilash
-    const student = await StudentModel.findByIdAndUpdate(
-      userId,
-      {
-        $set: {
-          gender, // Gender yangilanadi
-          image: imagePath,
-        },
-      },
-      { new: true }
-    );
-
-    res.status(200).json({ status: "success", data: student });
-  } catch (error) {
-    res.status(500).json({ status: "error", message: error.message });
   }
-});
+);
 
 export default router;
