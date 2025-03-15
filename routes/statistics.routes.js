@@ -212,5 +212,57 @@ router.get("/statistics/students/all", async (req, res) => {
     res.json({ status: "error", message: error.message });
   }
 });
+router.post(
+  "/statistics/appartment/filter",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { status, smallDistrict, province, course } = req.body;
+
+      let filter = {}; // Asosiy filter
+
+      // Bo‘sh bo‘lmagan qiymatlarni filterga qo‘shish
+      if (status) filter.status = status;
+      if (smallDistrict) filter.smallDistrict = smallDistrict;
+
+      // Student ID larni olish
+      if (province || course) {
+        let studentFilter = {};
+        if (province) studentFilter["province.name"] = province; // ✅ TO‘G‘RI YOZILDI
+        if (course) studentFilter["level.name"] = course;
+
+        // Studentlarni topish
+        const students = await StudentModel.find(studentFilter, "_id");
+        const studentIds = students.map((student) => student._id); // **FAQAT ID-larni olish**
+
+        if (studentIds.length == 0) {
+          return res.json({
+            status: "success",
+            data: [],
+          });
+        }
+
+        if (studentIds.length > 0) {
+          filter.studentId = { $in: studentIds }; // ✅ **Barcha studentlar ID-lari qo‘shildi**
+        }
+      }
+
+      // Natijani olish
+      const appartments = await AppartmentModel.find(filter).select(
+        "location status"
+      );
+
+      res.json({
+        status: "success",
+        data: appartments.filter((c) => c.status !== "Being checked"),
+      });
+    } catch (error) {
+      console.error("Xatolik:", error);
+      res
+        .status(500)
+        .json({ status: "error", message: "Internal Server Error" });
+    }
+  }
+);
 
 export default router;
