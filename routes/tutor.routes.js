@@ -99,7 +99,7 @@ router.post("/tutor/login", async (req, res) => {
     }
 
     const token = generateToken(findTutor._id);
-    const { _id, name, role, createdAt, updatedAt } = findTutor;
+    const { _id, name, role, createdAt, updatedAt,phone,image } = findTutor;
     const data = {
       _id,
       login: findTutor.login,
@@ -107,6 +107,8 @@ router.post("/tutor/login", async (req, res) => {
       password: findTutor.password,
       role,
       createdAt,
+      phone,
+      image,
       updatedAt,
       group: findStudents,
     };

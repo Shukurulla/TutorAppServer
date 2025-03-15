@@ -10,10 +10,7 @@ import NotificationRouter from "./routes/notification.routes.js";
 import mongoose from "mongoose";
 import cors from "cors";
 import path from "path";
-import fileUpload from "express-fileupload";
 import { fileURLToPath } from "url";
-import tutorModel from "./models/tutor.model.js";
-import authMiddleware from "./middlewares/auth.middleware.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
