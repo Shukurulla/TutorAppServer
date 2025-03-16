@@ -34,7 +34,8 @@ router.post("/appartment/create", authMiddleware, async (req, res) => {
       !req.files ||
       !req.files.boilerImage ||
       !req.files.gazStove ||
-      !req.files.chimney
+      !req.files.chimney ||
+      !req.files.additionImage
     ) {
       return res.status(400).json({
         status: "error",
@@ -45,6 +46,7 @@ router.post("/appartment/create", authMiddleware, async (req, res) => {
     const boilerImage = req.files.boilerImage;
     const gazStove = req.files.gazStove;
     const chimney = req.files.chimney;
+    const additionImage = req.files.additionImage;
 
     const imageDir = path.join(__dirname, "../public/images");
     if (!fs.existsSync(imageDir)) {
@@ -54,20 +56,24 @@ router.post("/appartment/create", authMiddleware, async (req, res) => {
     const boilerImageName = `${Date.now()}_boiler_${boilerImage.name}`;
     const gazStoveName = `${Date.now()}_gaz_${gazStove.name}`;
     const chimneyName = `${Date.now()}_gaz_${chimney.name}`;
+    const additionImageName = `${Date.now()}_gaz_${additionImage.name}`;
 
     const boilerImagePath = path.join(imageDir, boilerImageName);
     const gazStovePath = path.join(imageDir, gazStoveName);
     const chimneyPath = path.join(imageDir, chimneyName);
+    const additionImagePath = path.join(imageDir, additionImageName);
 
     await boilerImage.mv(boilerImagePath);
     await gazStove.mv(gazStovePath);
     await chimney.mv(chimneyPath);
+    await additionImage.mv(additionImagePath);
 
     const newAppartment = new AppartmentModel({
       studentId,
       boilerImage: { url: `/public/images/${boilerImageName}` },
       gazStove: { url: `/public/images/${gazStoveName}` },
       chimney: { url: `/public/images/${chimneyName}` },
+      additionImage: { url: `/public/images/${additionImageName}` },
       needNew: false,
       location: {
         lat: req.body.lat,

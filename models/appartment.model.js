@@ -78,6 +78,16 @@ const appartmentSchema = new mongoose.Schema(
         default: "Being checked",
       },
     },
+    additionImage: {
+      url: {
+        type: String,
+        
+      },
+      status: {
+        type: String,
+        default: "Being checked",
+      },
+    },
     chimney: {
       url: {
         type: String,
