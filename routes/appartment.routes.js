@@ -278,7 +278,6 @@ router.get("/appartment/new/:id", authMiddleware, async (req, res) => {
 
     const findAppartment = await AppartmentModel.find({
       studentId: id,
-      status: "Being checked",
     });
 
     res.json({ status: "success", data: findAppartment });
@@ -353,6 +352,8 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
           image: student.image,
           faculty: student.faculty,
           group: student.group,
+          province: student.province,
+          gender: student.gender
         },
         appartment: item,
       };
