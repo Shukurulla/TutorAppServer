@@ -139,7 +139,7 @@ router.get("/appartment/by-group/:name", async (req, res) => {
 
 router.post("/appartment/check", authMiddleware, async (req, res) => {
   try {
-    const { appartmentId, status, chimney, gazStove, boiler } = req.body;
+    const { appartmentId, status, chimney, gazStove, boiler, additionImage } = req.body;
 
     const findAppartment = await AppartmentModel.findById(appartmentId);
     if (!findAppartment) {
@@ -148,11 +148,15 @@ router.post("/appartment/check", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "Bunday kvartira topilmadi" });
     }
 
+    let additionImageStatus = ''
+    if(additionImage) additionImageStatus = additionImage
+
     await AppartmentModel.findByIdAndUpdate(appartmentId, {
       status,
       boilerImage: { ...findAppartment.boilerImage, status: boiler },
       chimney: { ...findAppartment.chimney, status: chimney },
       gazStove: { ...findAppartment.gazStove, status: gazStove },
+      additionImage: {...findAppartment.additionImage, status: additionImageStatus}
     });
     const checkedAppartment = await AppartmentModel.findById(appartmentId);
     res.status(200).json({ status: "success", data: checkedAppartment });
