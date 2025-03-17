@@ -50,14 +50,30 @@ const upload = multer({
 });
 router.post("/student/sign", async (req, res) => {
   try {
+    function formatDate(timestamp) {
+      const date = new Date(timestamp * 1000);
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const year = date.getFullYear();
+
+      return `${day}.${month}.${year}`;
+    }
+
     const { login, password } = req.body;
     const findStudent = await StudentModel.findOne({
       student_id_number: login.toString(),
-    });
+    }).lean(); // <-- MUHIM! Bu documentni oddiy obyektga aylantiradi
 
     if (findStudent) {
       const token = generateToken(findStudent._id);
-      return res.json({ status: "success", student: findStudent, token });
+      return res.json({
+        status: "success",
+        student: {
+          ...findStudent,
+          birth_date: formatDate(findStudent.birth_date),
+        },
+        token,
+      });
     }
 
     const { data } = await axios.post(
@@ -78,7 +94,7 @@ router.post("/student/sign", async (req, res) => {
     const student = await StudentModel.create(account.data.data);
     const token = generateToken(student._id);
 
-    res.json({ status: "success", student, token });
+    res.json({ status: "success", student: student.toObject(), token });
   } catch (error) {
     res.json({ message: error.message });
   }
@@ -198,5 +214,16 @@ router.put(
     }
   }
 );
+
+router.get("/student/find/:id", async (req, res) => {
+  try {
+    const findStudent = await StudentModel.find({
+      student_id_number: req.params.id,
+    });
+    res.json({ data: findStudent });
+  } catch (error) {
+    res.json({ error: error.message });
+  }
+});
 
 export default router;

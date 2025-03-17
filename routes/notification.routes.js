@@ -101,6 +101,7 @@ router.get("/notification/:userId", async (req, res) => {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
+
 router.put("/notification/:userId/read", async (req, res) => {
   try {
     const { userId } = req.params;

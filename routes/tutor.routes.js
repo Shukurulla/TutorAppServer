@@ -23,7 +23,7 @@ const __dirname = path.dirname(__filename);
 router.post("/tutor/create", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
-    const { login, password, group, name } = req.body;
+    const { login, password, group, name, phone } = req.body;
 
     const findAdmin = await adminModel.findById(userId);
     if (!findAdmin) {
@@ -53,6 +53,7 @@ router.post("/tutor/create", authMiddleware, async (req, res) => {
       login,
       group, // <-- Endi bu array sifatida keladi va saqlanadi
       name,
+      phone,
       password: hashedPassword,
     });
 
@@ -70,9 +71,10 @@ router.post("/tutor/login", async (req, res) => {
     if (!login || !password) {
       return res.status(400).json({
         status: "error",
-        message: "Iltimos Malumotlarni toliq kiriting",
+        message: "Iltimos, ma'lumotlarni to'liq kiriting",
       });
     }
+
     const findTutor = await tutorModel.findOne({ login });
     if (!findTutor) {
       return res
@@ -80,31 +82,46 @@ router.post("/tutor/login", async (req, res) => {
         .json({ status: "error", message: "Bunday tutor topilmadi" });
     }
 
-    const students = await StudentModel.find();
+    // Tutor guruhlarini arrayga olish
+    const groupNames = findTutor.group.map((g) => g.name);
 
+    // Faqat kerakli guruhlarga tegishli studentlarni olish
+    const students = await StudentModel.aggregate([
+      { $match: { "group.name": { $in: groupNames } } },
+      {
+        $group: {
+          _id: "$group.name",
+          faculty: { $first: "$specialty.name" },
+          studentCount: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // Guruhlar bo‘yicha array yaratish
     const findStudents = findTutor.group.map((item) => {
+      const groupInfo = students.find((s) => s._id === item.name);
       return {
         name: item.name,
-        faculty: students.filter((c) => c.group.name == item.name)[0].faculty
-          .name,
-        studentCount: students.filter((c) => c.group.name == item.name).length,
+        faculty: groupInfo ? groupInfo.faculty : "Noma'lum",
+        studentCount: groupInfo ? groupInfo.studentCount : 0,
       };
     });
 
+    // Parolni tekshirish
     const compare = await bcrypt.compare(password, findTutor.password);
     if (!compare) {
       return res
         .status(400)
-        .json({ status: "error", message: "Password mos kelmadi" });
+        .json({ status: "error", message: "Parol mos kelmadi" });
     }
 
+    // Token yaratish va ma'lumotlarni jo‘natish
     const token = generateToken(findTutor._id);
-    const { _id, name, role, createdAt, updatedAt,phone,image } = findTutor;
+    const { _id, name, role, createdAt, updatedAt, phone, image } = findTutor;
     const data = {
       _id,
       login: findTutor.login,
       name,
-      password: findTutor.password,
       role,
       createdAt,
       phone,
@@ -112,6 +129,7 @@ router.post("/tutor/login", async (req, res) => {
       updatedAt,
       group: findStudents,
     };
+
     res.status(200).json({
       status: "success",
       data,
@@ -123,11 +141,11 @@ router.post("/tutor/login", async (req, res) => {
       .json({ status: "error", message: error.message });
   }
 });
-
 router.get("/tutor/my-students", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
 
+    // Tutorni topish
     const findTutor = await tutorModel.findById(userId);
     if (!findTutor) {
       return res
@@ -135,18 +153,23 @@ router.get("/tutor/my-students", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "Bunday tutor topilmadi" });
     }
 
-    const group = findTutor.group;
-    const findStudents = await StudentModel.find().select(
-      "group.name faculty.name first_name second_name third_name full_name short_name university image  address  role"
-    );
-    const groupStudents = group.map((item) => {
-      return {
-        group: item.name,
-        students: findStudents.filter((c) => c.group.name == item.name),
-      };
-    });
+    // Tutor guruhlarini olish
+    const groupNames = findTutor.group.map((g) => g.name);
 
-    res.status(201).json({ status: "success", data: groupStudents });
+    // Faqat kerakli guruhlarga tegishli studentlarni olish
+    const findStudents = await StudentModel.find({
+      "group.name": { $in: groupNames },
+    }).select(
+      "group.name student_id_number faculty.name first_name second_name third_name full_name short_name university image address role"
+    );
+
+    // Guruhlar bo‘yicha studentlarni ajratish
+    const groupStudents = groupNames.map((groupName) => ({
+      group: groupName,
+      students: findStudents.filter((s) => s.group.name === groupName),
+    }));
+
+    res.status(200).json({ status: "success", data: groupStudents });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
   }

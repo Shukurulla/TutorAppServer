@@ -1,223 +1,148 @@
 import mongoose from "mongoose";
 
 const studentSchema = new mongoose.Schema({
-  first_name: {
-    type: String,
+  id: Number,
+  university: Object,
+  full_name: String,
+  short_name: String,
+  first_name: String,
+  second_name: String,
+  third_name: String,
+  gender: {
+    code: String,
+    name: String,
   },
-  second_name: {
-    type: String,
+  birth_date: Number,
+  student_id_number: String,
+  image: String,
+  avg_gpa: Number,
+  avg_grade: Number,
+  total_credit: Number,
+  country: {
+    code: String,
+    name: String,
   },
-  third_name: {
-    type: String,
+  province: {
+    code: String,
+    name: String,
+    _parent: String,
   },
-  full_name: {
-    type: String,
+  currentProvince: {
+    code: String,
+    name: String,
+    _parent: String,
   },
-  short_name: {
-    type: String,
+  district: {
+    code: String,
+    name: String,
+    _parent: String,
   },
-  university: {
-    type: String,
+  currentDistrict: {
+    code: String,
+    name: String,
+    _parent: String,
   },
-  student_id_number: {
-    type: String,
+  terrain: {
+    code: String,
+    name: String,
   },
-  image: {
-    type: String,
+  currentTerrain: {
+    code: String,
+    name: String,
   },
-  birth_date: {
-    type: Number,
+  citizenship: {
+    code: String,
+    name: String,
   },
-  email: {
-    type: String,
+  studentStatus: {
+    code: String,
+    name: String,
   },
-  group: {
-    id: {
-      type: Number,
-    },
-    name: {
-      type: String,
-    },
-    educationLang: {
-      code: {
-        type: String,
-      },
-      name: {
-        type: String,
-      },
-    },
+  _curriculum: Number,
+  educationForm: {
+    code: String,
+    name: String,
   },
-  faculty: {
-    id: {
-      type: Number,
-    },
-    name: {
-      type: String,
-    },
-    code: {
-      type: String,
-    },
-    parent: {
-      type: Number,
-    },
-    active: {
-      type: Boolean,
-    },
+  educationType: {
+    code: String,
+    name: String,
+  },
+  paymentForm: {
+    code: String,
+    name: String,
+  },
+  studentType: {
+    code: String,
+    name: String,
+  },
+  socialCategory: {
+    code: String,
+    name: String,
+  },
+  accommodation: {
+    code: String,
+    name: String,
+  },
+  department: {
+    id: Number,
+    name: String,
+    code: String,
     structureType: {
-      code: {
-        type: String,
-      },
-      name: {
-        type: String,
-      },
+      code: String,
+      name: String,
     },
     localityType: {
-      code: {
-        type: String,
-      },
-      name: {
-        type: String,
-      },
+      code: String,
+      name: String,
     },
-  },
-  educationLang: {
-    code: {
+    parent: {
       type: String,
+      default: null,
     },
-    name: {
-      type: String,
-    },
-  },
-  semester: {
-    id: {
-      type: Number,
-    },
-    code: {
-      type: String,
-    },
-    name: {
-      type: String,
-    },
-    current: {
-      type: Boolean,
-    },
-    education_year: {
-      code: {
-        type: String,
-      },
-      name: {
-        type: String,
-      },
-      current: {
-        type: Boolean,
-      },
-    },
+    active: Boolean,
   },
   specialty: {
-    code: {
-      type: String,
-    },
-    name: {
-      type: String,
+    id: Number,
+    code: String,
+    name: String,
+  },
+  group: {
+    id: Number,
+    name: String,
+    educationLang: {
+      code: String,
+      name: String,
     },
   },
   level: {
-    code: {
-      type: String,
-    },
-    name: {
-      type: String,
-    },
+    code: String,
+    name: String,
   },
-  educationForm: {
-    code: {
-      type: String,
-    },
-    name: {
-      type: String,
-    },
+  semester: {
+    id: Number,
+    code: String,
+    name: String,
   },
-  educationType: {
-    code: {
-      type: String,
-    },
-    name: {
-      type: String,
-    },
+  educationYear: {
+    code: String,
+    name: String,
+    current: Boolean,
   },
-  paymentForm: {
-    code: {
-      type: String,
-    },
-    name: {
-      type: String,
-    },
-  },
-  studentStatus: {
-    code: {
-      type: String,
-    },
-    name: {
-      type: String,
-    },
-  },
-  country: {
-    code: {
-      type: String,
-    },
-    name: {
-      type: String,
-    },
-  },
-  district: {
-    code: {
-      type: String,
-    },
-    name: {
-      type: String,
-    },
-  },
-  province: {
-    code: {
-      type: String,
-    },
-    name: {
-      type: String,
-    },
-  },
-  address: {
+  year_of_enter: Number,
+  roommate_count: {
     type: String,
+    default: null,
   },
-  socialCategory: {
-    code: {
-      type: String,
-    },
-    name: {
-      type: String,
-    },
-  },
-  accommodation: {
-    code: {
-      type: String,
-    },
-    name: {
-      type: String,
-    },
-  },
-  validateUrl: {
+  is_graduate: Boolean,
+  total_acload: {
     type: String,
+    default: null,
   },
-  hash: {
-    type: String,
-  },
-  gender: {
-    type: String,
-    default: "",
-  },
-  role: {
-    type: String,
-    default: "student",
-  },
+  other: String,
+  created_at: Number,
+  updated_at: Number,
+  hash: String,
+  validateUrl: String,
 });
 
 const StudentModel = mongoose.model("student", studentSchema);
