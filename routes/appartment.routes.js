@@ -139,7 +139,8 @@ router.get("/appartment/by-group/:name", async (req, res) => {
 
 router.post("/appartment/check", authMiddleware, async (req, res) => {
   try {
-    const { appartmentId, status, chimney, gazStove, boiler, additionImage } = req.body;
+    const { appartmentId, status, chimney, gazStove, boiler, additionImage } =
+      req.body;
 
     const findAppartment = await AppartmentModel.findById(appartmentId);
     if (!findAppartment) {
@@ -148,15 +149,18 @@ router.post("/appartment/check", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "Bunday kvartira topilmadi" });
     }
 
-    let additionImageStatus = ''
-    if(additionImage) additionImageStatus = additionImage
+    let additionImageStatus = "";
+    if (additionImage) additionImageStatus = additionImage;
 
     await AppartmentModel.findByIdAndUpdate(appartmentId, {
       status,
       boilerImage: { ...findAppartment.boilerImage, status: boiler },
       chimney: { ...findAppartment.chimney, status: chimney },
       gazStove: { ...findAppartment.gazStove, status: gazStove },
-      additionImage: {...findAppartment.additionImage, status: additionImageStatus}
+      additionImage: {
+        ...findAppartment.additionImage,
+        status: additionImageStatus,
+      },
     });
     const checkedAppartment = await AppartmentModel.findById(appartmentId);
     res.status(200).json({ status: "success", data: checkedAppartment });
@@ -232,24 +236,29 @@ router.get(
             green: {
               percent:
                 ((statusCounts.green / totalCount) * 100).toFixed(2) + "%",
-              total: statusCounts.green,
+              total: statusCounts.green || 0,
             },
             yellow: {
               percent:
                 ((statusCounts.yellow / totalCount) * 100).toFixed(2) + "%",
-              total: statusCounts.yellow,
+              total: statusCounts.yellow || 0,
             },
             red: {
               percent: ((statusCounts.red / totalCount) * 100).toFixed(2) + "%",
-              total: statusCounts.red,
+              total: statusCounts.red || 0,
             },
             blue: {
               percent:
                 ((statusCounts.blue / totalCount) * 100).toFixed(2) + "%",
-              total: statusCounts.blue,
+              total: statusCounts.blue || 0,
             },
           }
-        : { green: "0%", yellow: "0%", red: "0%", blue: "0%" };
+        : {
+            green: { percent: "0%", total: 0 },
+            yellow: { percent: "0%", total: 0 },
+            red: { percent: "0%", total: 0 },
+            blue: { percent: "0%", total: 0 },
+          };
 
       res.status(200).json({
         status: "success",
@@ -363,7 +372,7 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
           faculty: student.faculty,
           group: student.group,
           province: student.province,
-          gender: student.gender
+          gender: student.gender,
         },
         appartment: item,
       };
