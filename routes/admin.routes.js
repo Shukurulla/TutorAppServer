@@ -63,20 +63,10 @@ router.get("/admin/tutors", authMiddleware, async (req, res) => {
   try {
     const tutors = await tutorModel.find();
 
-    const students = await StudentModel.find(); // Barcha studentlarni oldik
+    // Barcha studentlarni oldik
 
     const formattedTutors = tutors.map((tutor) => {
-      const findStudents = tutor.group.map((item) => {
-        const filteredStudents = students.filter(
-          (student) => student.group.name === item.name
-        );
-
-        return {
-          name: item.name,
-          faculty: filteredStudents.length > 0 ? filteredStudents[0].faculty.name : "Noma'lum",
-          studentCount: filteredStudents.length,
-        };
-      });
+      const groupNames = tutor.group.map((g) => g.name);
 
       return {
         _id: tutor._id,
@@ -88,7 +78,7 @@ router.get("/admin/tutors", authMiddleware, async (req, res) => {
         phone: tutor.phone,
         image: tutor.image,
         updatedAt: tutor.updatedAt,
-        group: findStudents,
+        group: tutor.group,
       };
     });
 
@@ -97,6 +87,5 @@ router.get("/admin/tutors", authMiddleware, async (req, res) => {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
-
 
 export default router;

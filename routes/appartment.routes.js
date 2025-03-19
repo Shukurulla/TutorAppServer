@@ -271,6 +271,84 @@ router.get(
   }
 );
 
+router.get("/faculties", async (req, res) => {
+  try {
+    const uniqueFaculties = await StudentModel.distinct("specialty.name");
+    res.json({ data: uniqueFaculties });
+  } catch (error) {
+    res.json({ message: error.message });
+  }
+});
+
+router.post("/students-filter", async (req, res) => {
+  try {
+    const { gender, faculty, year } = req.body;
+
+    const findStudents = await StudentModel.find({
+      "specialty.name": faculty,
+      "gender.name": gender,
+    }).select(
+      "full_name image birth_date district currentDistrict group level educationYear"
+    );
+
+    // Filtirlash va formatni o'zgartirish
+    const filteredStudents = findStudents
+      .filter((c) => {
+        // Timestampni millisekundga o'tkazish
+        const birthDate = new Date(c.birth_date * 1000);
+        // Yilni solishtirish
+        return birthDate.getFullYear() == year;
+      })
+      .map((student) => {
+        // birth_date ni DD.MM.YYYY formatiga o'tkazish
+        const birthDate = new Date(student.birth_date * 1000);
+        const day = String(birthDate.getDate()).padStart(2, "0"); // Kun
+        const month = String(birthDate.getMonth() + 1).padStart(2, "0"); // Oy (0 dan boshlanadi, shuning uchun +1)
+        const year = birthDate.getFullYear(); // Yil
+        const formattedDate = `${day}.${month}.${year}`; // DD.MM.YYYY format
+
+        // Yangi obyekt qaytarish
+        return {
+          ...student._doc, // Boshqa maydonlarni saqlab qolish
+          birth_date: formattedDate, // birth_date ni yangilash
+        };
+      });
+
+    res.json({
+      data: filteredStudents,
+      total: filteredStudents.length,
+    });
+  } catch (error) {
+    res.json({ message: error.message });
+  }
+});
+
+router.get("/name/:name", async (req, res) => {
+  try {
+    const { name } = req.params;
+    const findStudents = await StudentModel.find({
+      first_name: name.toLocaleUpperCase(),
+    }).select("level full_name district image birth_date");
+    const filteredStudents = findStudents.map((student) => {
+      // birth_date ni DD.MM.YYYY formatiga o'tkazish
+      const birthDate = new Date(student.birth_date * 1000);
+      const day = String(birthDate.getDate()).padStart(2, "0"); // Kun
+      const month = String(birthDate.getMonth() + 1).padStart(2, "0"); // Oy (0 dan boshlanadi, shuning uchun +1)
+      const year = birthDate.getFullYear(); // Yil
+      const formattedDate = `${day}.${month}.${year}`; // DD.MM.YYYY format
+
+      // Yangi obyekt qaytarish
+      return {
+        ...student._doc, // Boshqa maydonlarni saqlab qolish
+        birth_date: formattedDate, // birth_date ni yangilash
+      };
+    });
+    res.json({ data: filteredStudents });
+  } catch (error) {
+    res.json({ message: error.message });
+  }
+});
+
 router.get("/appartment/all-delete", async (req, res) => {
   try {
     const appartments = await AppartmentModel.find();
