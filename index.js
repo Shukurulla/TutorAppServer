@@ -11,30 +11,25 @@ import mongoose from "mongoose";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
-import axios from "axios";
-import StudentModel from "./models/student.model.js";
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+import fileUpload from "express-fileupload";
 
 config();
 
 const app = express();
+
+app.use(cors({ origin: "*" }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use("/public", express.static("public"));
+
 const port = process.env.PORT;
 const mongo_url = process.env.MONGO_URI;
 
 mongoose.connect(mongo_url).then(() => {
   console.log("database connected");
 });
-
-app.use(
-  cors({
-    origin: "*",
-  })
-);
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use("/public", express.static(path.join(__dirname, "public")));
 
 app.use(StudentRouter);
 app.use(AppartmentRouter);
@@ -43,6 +38,7 @@ app.use(TutorRouter);
 app.use(StatisticsRouter);
 app.use(FilledRouter);
 app.use(NotificationRouter);
+app.use(fileUpload());
 
 app.get("/", async (req, res) => {
   res.json({ message: "hello" });

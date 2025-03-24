@@ -264,5 +264,58 @@ router.post(
     }
   }
 );
+router.post("/statistics/faculty-data", authMiddleware, async (req, res) => {
+  try {
+    const { faculty } = req.body; // Filter ma'lumotlari body orqali keladi
+
+    const matchStage = {
+      "accommodation.name": { $ne: "O‘z uyida" }, // "O‘z uyida" bo‘lmagan talabalar
+    };
+
+    if (faculty?.length) {
+      matchStage["department.name"] = { $in: faculty }; // Faqat tanlangan fakultetlar
+    }
+
+    const facultyStats = await StudentModel.aggregate([
+      { $match: matchStage }, // Faqat kerakli studentlarni olish
+      {
+        $lookup: {
+          from: "appartments", // AppartmentModel bilan bog‘lash
+          localField: "_id",
+          foreignField: "studentId",
+          as: "rentedInfo",
+        },
+      },
+      {
+        $group: {
+          _id: "$department.name", // Fakultet bo‘yicha guruhlash
+          jami: { $sum: 1 }, // Har bir fakultet bo‘yicha umumiy studentlar soni
+          ijarada: {
+            $sum: {
+              $cond: {
+                if: { $gt: [{ $size: "$rentedInfo" }, 0] },
+                then: 1,
+                else: 0,
+              },
+            },
+          }, // Ijarada yashovchi talabalar sonini hisoblash
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          name: "$_id", // Fakultet nomi
+          jami: 1, // Jami talabalar soni
+          ijarada: 1, // Ijarada yashovchilar soni
+        },
+      },
+    ]);
+
+    res.json(facultyStats);
+  } catch (error) {
+    console.error("Error fetching faculty statistics:", error);
+    res.status(500).json({ message: "Serverda xatolik yuz berdi" });
+  }
+});
 
 export default router;

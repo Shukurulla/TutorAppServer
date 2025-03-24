@@ -273,10 +273,30 @@ router.get(
 
 router.get("/faculties", async (req, res) => {
   try {
-    const uniqueFaculties = await StudentModel.distinct("specialty.name");
+    const uniqueFaculties = await StudentModel.distinct("department.name");
     res.json({ data: uniqueFaculties });
   } catch (error) {
     res.json({ message: error.message });
+  }
+});
+router.get("/groups", async (req, res) => {
+  try {
+    const { search } = req.query; // Querydan search olish
+    const uniqueFaculties = await StudentModel.distinct("group.name");
+
+    // Agar search bo'sh bo'lsa, asl ro'yxatni qaytarish
+    if (!search) {
+      return res.json({ data: uniqueFaculties });
+    }
+
+    // Search bo'lsa, filtr qilib qaytarish
+    const filteredFaculties = uniqueFaculties.filter((faculty) =>
+      faculty.toLowerCase().includes(search.toLowerCase())
+    );
+
+    res.json({ data: filteredFaculties });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 
@@ -285,7 +305,7 @@ router.post("/students-filter", async (req, res) => {
     const { gender, faculty, year } = req.body;
 
     const findStudents = await StudentModel.find({
-      "specialty.name": faculty,
+      "department.name": faculty,
       "gender.name": gender,
     }).select(
       "full_name image birth_date district currentDistrict group level educationYear"

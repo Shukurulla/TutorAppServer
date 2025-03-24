@@ -9,13 +9,10 @@ import AppartmentModel from "../models/appartment.model.js";
 import path from "path";
 import fs from "fs";
 
-import fileUpload from "express-fileupload";
 import { fileURLToPath } from "url";
 import NotificationModel from "../models/notification.model.js";
 
 const router = express.Router();
-
-router.use(fileUpload());
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,7 +29,7 @@ router.post("/tutor/create", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "Bunday admin topilmadi" });
     }
 
-    if (!login || !password || !group || !Array.isArray(group)) {
+    if (!login || !password || !group || !Array.isArray(JSON.parse(group))) {
       return res.status(400).json({
         status: "error",
         message: "Iltimos, barcha ma'lumotlarni to'g'ri kiriting",
@@ -49,12 +46,37 @@ router.post("/tutor/create", authMiddleware, async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    let imagePath = null;
+
+    // Fayl yuklanganligini tekshirish
+    if (req.files && req.files.image) {
+      const imageFile = req.files.image;
+
+      // Faylni saqlash uchun katalog
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
+      const uploadDir = path.join(__dirname, "../public/images");
+
+      // Agar katalog mavjud bo'lmasa, uni yaratish
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      // Faylni saqlash
+      const fileName = `${Date.now()}_${imageFile.name}`;
+      imagePath = `/public/images/${fileName}`;
+      const savePath = path.join(uploadDir, fileName);
+
+      await imageFile.mv(savePath);
+    }
+
     const tutor = await tutorModel.create({
       login,
-      group, // <-- Endi bu array sifatida keladi va saqlanadi
+      group: JSON.parse(group),
       name,
       phone,
       password: hashedPassword,
+      image: imagePath, // Rasmingizning yo'li bazaga saqlanadi
     });
 
     res.status(200).json({ status: "success", data: tutor });
@@ -160,7 +182,7 @@ router.get("/tutor/my-students", authMiddleware, async (req, res) => {
     const findStudents = await StudentModel.find({
       "group.name": { $in: groupNames },
     }).select(
-      "group.name student_id_number faculty.name first_name second_name third_name full_name short_name university image address role"
+      "group.name student_id_number accommodation faculty.name first_name second_name third_name full_name short_name university image address role"
     );
 
     // Guruhlar bo‘yicha studentlarni ajratish
@@ -423,6 +445,73 @@ router.put("/tutor/profile", authMiddleware, async (req, res) => {
     );
 
     res.status(200).json({ message: "Tutor yangilandi", tutor: updatedTutor });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
+router.post(
+  "/tutor/delete-group/:tutorId",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const findTutor = await tutorModel.findById(req.params.tutorId);
+      if (!findTutor) {
+        return res
+          .status(401)
+          .json({ status: "error", message: "Bunday tutor topilmadi" });
+      }
+      const { groupName } = req.body;
+      const { group } = findTutor;
+
+      const findGroup = group.find((c) => c.name == groupName);
+      if (!findGroup) {
+        return res.status(401).json({
+          status: "error",
+          message: `Bu tutorda "${group} nomli guruh mavjud emas"`,
+        });
+      }
+      const deletedGroup = group.filter((c) => c.name !== groupName);
+
+      const editedTutor = await tutorModel.findByIdAndUpdate(
+        findTutor._id,
+        {
+          $set: {
+            group: deletedGroup,
+          },
+        },
+        { new: true }
+      );
+      if (!editedTutor) {
+        return res.status(500).json({
+          status: "error",
+          message: "Tutor malumotlarini ozgartirishda xatolik ketdi",
+          data: editedTutor,
+        });
+      }
+      res.status(200).json({
+        status: "success",
+        message: "Tutor malumotlari muaffaqiyatli ozgartirildi",
+      });
+    } catch (error) {
+      res.status(500).json({ status: "error", message: error.message });
+    }
+  }
+);
+
+router.delete("/tutor/delete/:id", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const findTutor = await tutorModel.findById(id);
+    if (!findTutor) {
+      return res
+        .status(401)
+        .json({ status: "error", message: "Bunday turor topilmadi" });
+    }
+    await tutorModel.findByIdAndDelete(id);
+    res
+      .status(200)
+      .json({ status: "success", message: "tutorMuaffaqiyatli ochirildi" });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
   }
