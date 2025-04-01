@@ -471,6 +471,8 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
           group: student.group,
           province: student.province,
           gender: student.gender,
+          department: student.department,
+          specialty: student.specialty,
         },
         appartment: item,
       };

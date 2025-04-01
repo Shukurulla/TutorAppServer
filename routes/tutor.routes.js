@@ -320,19 +320,28 @@ router.get("/tutor/students-group/:group", authMiddleware, async (req, res) => {
 router.get("/tutor/profile", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
-    const findTutor = await tutorModel.findById(userId);
+    const findTutor = await tutorModel.findById(userId).populate("group"); // group ni populate qilish
+
     if (!findTutor) {
       return res
         .status(401)
         .json({ status: "error", message: "Bunday tutor topilmadi" });
     }
 
-    const students = await StudentModel.find();
+    // Faqat kerakli studentlarni olish
+    const groupNames = findTutor.group.map((g) => g.name);
+    const students = await StudentModel.find({
+      "group.name": { $in: groupNames },
+    }).select("group department");
 
+    // Fakultetlarni tutor group bilan bog‘lash
     const tutorFaculty = findTutor.group.map((item) => {
+      const student = students.find((c) => c.group.name === item.name);
+      console.log(student);
+
       return {
         name: item.name,
-        faculty: students.find((c) => c.group.name == item.name).faculty.name,
+        faculty: student ? student.department.name : "Noma'lum fakultet",
       };
     });
 
@@ -348,22 +357,20 @@ router.get("/tutor/profile", authMiddleware, async (req, res) => {
       updatedAt,
     } = findTutor;
 
-    const tutorSchema = {
-      _id,
-      login,
-      name,
-      password,
-      role,
-      image,
-      phone,
-      createdAt,
-      updatedAt,
-      group: tutorFaculty,
-    };
-
     res.json({
       status: "success",
-      data: tutorSchema,
+      data: {
+        _id,
+        login,
+        name,
+        password,
+        role,
+        image,
+        phone,
+        createdAt,
+        updatedAt,
+        group: tutorFaculty,
+      },
     });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
