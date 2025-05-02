@@ -81,7 +81,7 @@ const appartmentSchema = new mongoose.Schema(
     additionImage: {
       url: {
         type: String,
-        default: ""
+        default: "",
       },
       status: {
         type: String,
@@ -122,7 +122,6 @@ const appartmentSchema = new mongoose.Schema(
     },
     description: {
       type: String,
-      required: true,
     },
   },
   { timestamps: true }
