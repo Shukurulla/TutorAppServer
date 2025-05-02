@@ -197,6 +197,42 @@ router.get("/tutor/my-students", authMiddleware, async (req, res) => {
   }
 });
 
+router.post("/tutor/add-group/:tutorId", async (req, res) => {
+  try {
+    const { tutorId } = req.params;
+    const { groups } = req.body; // massiv: [{ name: "guruh nomi" }, {...}, ...]
+
+    const findTutor = await tutorModel.findById(tutorId);
+    if (!findTutor) {
+      return res
+        .status(404)
+        .json({ status: "error", message: "Bunday tutor topilmadi" });
+    }
+
+    if (!Array.isArray(groups)) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Groups massivda bo'lishi kerak" });
+    }
+
+    // Grouplar massiviga yangi grouplarni qo'shish
+    const updatedTutor = await tutorModel.findByIdAndUpdate(
+      tutorId,
+      { $push: { group: { $each: groups } } },
+      { new: true }
+    );
+
+    res.status(200).json({
+      status: "success",
+      message: "Guruhlar qo‘shildi",
+      tutor: updatedTutor,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: "error", message: "Server xatosi" });
+  }
+});
+
 router.post("/tutor/change-password", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
