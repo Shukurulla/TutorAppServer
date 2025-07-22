@@ -24,7 +24,7 @@ router.post("/notification/report", authMiddleware, async (req, res) => {
       });
     }
 
-    await AppartmentModel.findByIdAndDelete(findAppartment._id);
+    // await AppartmentModel.findByIdAndDelete(findAppartment._id);
 
     const notification = await NotificationModel.create({
       message,
