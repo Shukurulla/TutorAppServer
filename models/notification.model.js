@@ -17,6 +17,10 @@ const notificationSchema = new mongoose.Schema(
     status: {
       type: String,
     },
+    notification_type: {
+      type:String,
+      enum: ['report', 'push' ]
+    }
   },
   {
     timestamps: true,

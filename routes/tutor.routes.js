@@ -90,6 +90,8 @@ router.post("/tutor/create", authMiddleware, async (req, res) => {
 router.post("/tutor/login", async (req, res) => {
   try {
     const { login, password } = req.body;
+    console.log(req.body);
+    
     if (!login || !password) {
       return res.status(400).json({
         status: "error",

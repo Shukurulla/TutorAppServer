@@ -30,6 +30,7 @@ router.post("/notification/report", authMiddleware, async (req, res) => {
       message,
       status,
       userId,
+      notification_type: "report",
     });
 
     res.status(200).json({ status: "success", data: notification });
@@ -55,10 +56,23 @@ router.post("/notification/push", authMiddleware, async (req, res) => {
       });
     }
 
+    if (
+      notification_type !== "push" ||
+      notification_type !== "report" ||
+      !notification_type
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message:
+          "Iltimos notification tipini togri korsating (notification_type)",
+      });
+    }
+
     const notification = await NotificationModel.create({
       message,
       status,
       userId,
+      notification_type: "push",
     });
 
     res.status(200).json({ status: "success", data: notification });
@@ -85,7 +99,7 @@ router.delete("/notification/:id", authMiddleware, async (req, res) => {
   }
 });
 
-router.get("/notification/:userId", async (req, res) => {
+router.get("/notification/push/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
     const findStudent = await StudentModel.findById(userId);
@@ -95,14 +109,36 @@ router.get("/notification/:userId", async (req, res) => {
         message: "Bunday student topilmadi",
       });
     }
-    const findNotifications = await NotificationModel.find({ userId });
+    const findNotifications = await NotificationModel.find({
+      userId,
+      notification_type: "push",
+    });
+    res.json({ status: "success", data: findNotifications });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+router.get("/notification/report/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const findStudent = await StudentModel.findById(userId);
+    if (!findStudent) {
+      return res.status(400).json({
+        status: "error",
+        message: "Bunday student topilmadi",
+      });
+    }
+    const findNotifications = await NotificationModel.find({
+      userId,
+      notification_type: "report",
+    });
     res.json({ status: "success", data: findNotifications });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
 
-router.put("/notification/:userId/read", async (req, res) => {
+router.put("/notification/report/:userId/read", async (req, res) => {
   try {
     const { userId } = req.params;
     const findStudent = await StudentModel.findById(userId);
@@ -112,7 +148,43 @@ router.put("/notification/:userId/read", async (req, res) => {
         message: "Bunday student topilmadi",
       });
     }
-    const findNotifications = await NotificationModel.find({ userId });
+    const findNotifications = await NotificationModel.find({
+      userId,
+      notification_type: "report",
+    });
+    for (let i = 0; i < findNotifications.length; i++) {
+      await NotificationModel.findByIdAndUpdate(
+        findNotifications[i]._id,
+        {
+          $set: {
+            isRead: true,
+          },
+        },
+        {
+          new: true,
+        }
+      );
+    }
+    const findNewNotifications = await NotificationModel.find({ studentId });
+    res.json({ status: "success", data: findNewNotifications });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+router.put("/notification/push/:userId/read", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const findStudent = await StudentModel.findById(userId);
+    if (!findStudent) {
+      return res.status(400).json({
+        status: "error",
+        message: "Bunday student topilmadi",
+      });
+    }
+    const findNotifications = await NotificationModel.find({
+      userId,
+      notification_type: "push",
+    });
     for (let i = 0; i < findNotifications.length; i++) {
       await NotificationModel.findByIdAndUpdate(
         findNotifications[i]._id,
