@@ -24,7 +24,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/public", express.static("public"));
 
-const port = process.env.PORT;
+const port = 7788;
 const mongo_url = process.env.MONGO_URI;
 
 mongoose.connect(mongo_url).then(() => {
