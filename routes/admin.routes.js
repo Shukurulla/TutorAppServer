@@ -5,7 +5,54 @@ import generateToken from "../utils/token.js";
 import authMiddleware from "../middlewares/auth.middleware.js";
 import tutorModel from "../models/tutor.model.js";
 import StudentModel from "../models/student.model.js";
+import path from "path";
+import fs from "fs";
+import fileUpload from "express-fileupload";
+import { fileURLToPath } from "url";
+import adsModel from "../models/ads.model.js";
+
 const router = express.Router();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+router.use(fileUpload());
+
+router.post("/admin/ads", authMiddleware, async (req, res) => {
+  try {
+    if (!req.files || !req.files.image) {
+      return res.status(400).json({ message: "Image fayl majburiy." });
+    }
+
+    const { title } = req.body;
+    const imageFile = req.files.image;
+    const iconFile = req.files.icon;
+
+    const newAd = await adsModel.create({ title, image: "", icon: "" });
+
+    const adsDir = path.join(__dirname, "../public/ads");
+    if (!fs.existsSync(adsDir)) fs.mkdirSync(adsDir, { recursive: true });
+    const ext = path.extname(imageFile.name); // .png, .jpg, ...
+    const imageName = `image_${newAd._id}${ext}`;
+
+    await imageFile.mv(path.join(adsDir, imageName));
+
+    let iconName = "";
+    if (iconFile) {
+      iconName = `icon_${newAd._id}.png`;
+      await iconFile.mv(path.join(adsDir, iconName));
+    }
+
+    newAd.image = imageName;
+    newAd.icon = iconName;
+    await newAd.save();
+
+    res.status(201).json({ message: "Reklama yaratildi", ad: newAd });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server xatosi", error: err.message });
+  }
+});
 
 router.post("/admin/sign", async (req, res) => {
   try {

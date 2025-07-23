@@ -18,15 +18,15 @@ import fileUpload from "express-fileupload";
 config();
 
 const app = express();
+app.use(fileUpload());
 
-app.use(cors({ origin: "*" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/public", express.static("public"));
+app.use(cors({ origin: "*" }));
 
 const port = 7788;
 const mongo_url = process.env.MONGO_URI;
-
 mongoose.connect(mongo_url).then(() => {
   console.log("database connected");
 });
@@ -38,7 +38,6 @@ app.use(TutorRouter);
 app.use(StatisticsRouter);
 app.use(FilledRouter);
 app.use(NotificationRouter);
-app.use(fileUpload());
 
 app.get("/", async (req, res) => {
   res.json({ message: "hello" });

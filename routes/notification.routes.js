@@ -118,6 +118,7 @@ router.get("/notification/push/:userId", async (req, res) => {
     const unreadNotifications = findNotifications.filter(
       (c) => c.isRead == true
     ).length;
+
     res.json({
       status: "success",
       data: findNotifications,
