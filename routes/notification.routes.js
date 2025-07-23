@@ -132,9 +132,20 @@ router.get("/notification/report/:userId", async (req, res) => {
       userId,
       notification_type: "report",
     });
+    const allNotifications = findNotification.length;
+    const unreadNotifications = findNotification.filter(
+      (c) => c.isRead == true
+    ).length;
     res.json({ status: "success", data: findNotifications });
   } catch (error) {
-    res.status(500).json({ status: "error", message: error.message });
+    res
+      .status(500)
+      .json({
+        status: "error",
+        message: error.message,
+        length: allNotifications,
+        unread: unreadNotifications,
+      });
   }
 });
 
