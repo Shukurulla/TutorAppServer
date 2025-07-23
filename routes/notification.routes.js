@@ -113,7 +113,17 @@ router.get("/notification/push/:userId", async (req, res) => {
       userId,
       notification_type: "push",
     });
-    res.json({ status: "success", data: findNotifications });
+
+    const allNotifications = findNotifications.length;
+    const unreadNotifications = findNotifications.filter(
+      (c) => c.isRead == true
+    ).length;
+    res.json({
+      status: "success",
+      data: findNotifications,
+      length: allNotifications,
+      unread: unreadNotifications,
+    });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
   }
@@ -132,20 +142,21 @@ router.get("/notification/report/:userId", async (req, res) => {
       userId,
       notification_type: "report",
     });
-    const allNotifications = findNotification.length;
-    const unreadNotifications = findNotification.filter(
+    const allNotifications = findNotifications.length;
+    const unreadNotifications = findNotifications.filter(
       (c) => c.isRead == true
     ).length;
-    res.json({ status: "success", data: findNotifications });
+    res.json({
+      status: "success",
+      data: findNotifications,
+      length: allNotifications,
+      unread: unreadNotifications,
+    });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        status: "error",
-        message: error.message,
-        length: allNotifications,
-        unread: unreadNotifications,
-      });
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
   }
 });
 
