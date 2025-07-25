@@ -30,6 +30,7 @@ router.post("/notification/report", authMiddleware, async (req, res) => {
       message,
       status,
       userId,
+      appartmentId,
       notification_type: "report",
     });
 
