@@ -16,41 +16,112 @@ const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Express-fileupload middleware - xuddi appartment kabi
 router.use(fileUpload());
 
 router.post("/admin/ads", authMiddleware, async (req, res) => {
   try {
-    if (!req.files || !req.files.image) {
-      return res.status(400).json({ message: "Image fayl majburiy." });
-    }
+    console.log("=== ADS CREATE BOSHLANDI ===");
+    console.log("Body:", req.body);
+    console.log("Files:", req.files);
 
+    // Title tekshirish
     const { title } = req.body;
-    const imageFile = req.files.image;
-    const iconFile = req.files.icon;
-
-    const newAd = await adsModel.create({ title, image: "", icon: "" });
-
-    const adsDir = path.join(__dirname, "../public/ads");
-    if (!fs.existsSync(adsDir)) fs.mkdirSync(adsDir, { recursive: true });
-    const ext = path.extname(imageFile.name); // .png, .jpg, ...
-    const imageName = `image_${newAd._id}${ext}`;
-
-    await imageFile.mv(path.join(adsDir, imageName));
-
-    let iconName = "";
-    if (iconFile) {
-      iconName = `icon_${newAd._id}.png`;
-      await iconFile.mv(path.join(adsDir, iconName));
+    if (!title) {
+      return res.status(400).json({
+        status: "error",
+        message: "Title majburiy",
+      });
     }
 
-    newAd.image = imageName;
-    newAd.icon = iconName;
+    // Fayllar tekshirish - xuddi appartment kabi
+    if (!req.files || !req.files.image) {
+      return res.status(400).json({
+        status: "error",
+        message: "Image fayl majburiy",
+      });
+    }
+
+    const imageFile = req.files.image;
+    const iconFile = req.files.icon; // ixtiyoriy
+
+    console.log("Image file:", imageFile ? imageFile.name : "yo'q");
+    console.log("Icon file:", iconFile ? iconFile.name : "yo'q");
+
+    // Katalog yaratish - xuddi appartment kabi
+    const imageDir = path.join(__dirname, "../public/ads");
+    if (!fs.existsSync(imageDir)) {
+      fs.mkdirSync(imageDir, { recursive: true });
+    }
+
+    // Fayl nomlarini yaratish - appartment kabi timestamp bilan
+    const imageFileName = `${Date.now()}_image_${imageFile.name}`;
+    const imagePath = path.join(imageDir, imageFileName);
+
+    let iconFileName = "";
+    let iconPath = "";
+    if (iconFile) {
+      iconFileName = `${Date.now()}_icon_${iconFile.name}`;
+      iconPath = path.join(imageDir, iconFileName);
+    }
+
+    console.log("Image path:", imagePath);
+    console.log("Icon path:", iconPath);
+
+    // Fayllarni saqlash - xuddi appartment kabi mv() usuli bilan
+    await imageFile.mv(imagePath);
+    console.log("Image saqlandi");
+
+    if (iconFile) {
+      await iconFile.mv(iconPath);
+      console.log("Icon saqlandi");
+    }
+
+    // Ma'lumotlar bazasiga saqlash
+    const newAd = new adsModel({
+      title,
+      image: `/public/ads/${imageFileName}`,
+      icon: iconFile ? `/public/ads/${iconFileName}` : "",
+    });
+
     await newAd.save();
 
-    res.status(201).json({ message: "Reklama yaratildi", ad: newAd });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server xatosi", error: err.message });
+    console.log("Ads bazaga saqlandi:", newAd._id);
+
+    res.status(201).json({
+      status: "success",
+      message: "Reklama muvaffaqiyatli yaratildi",
+      data: newAd,
+    });
+  } catch (error) {
+    console.error("Ads yaratishda xatolik:", error);
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+});
+
+// Test route
+router.post("/admin/ads/test", authMiddleware, async (req, res) => {
+  try {
+    console.log("=== TEST ROUTE ===");
+    console.log("Body:", req.body);
+    console.log("Files:", req.files);
+    console.log("Headers:", req.headers);
+
+    res.json({
+      status: "success",
+      message: "Test route ishlayapti",
+      body: req.body,
+      files: req.files ? Object.keys(req.files) : "files yo'q",
+      contentType: req.get("Content-Type"),
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
   }
 });
 
@@ -110,11 +181,7 @@ router.get("/admin/tutors", authMiddleware, async (req, res) => {
   try {
     const tutors = await tutorModel.find();
 
-    // Barcha studentlarni oldik
-
     const formattedTutors = tutors.map((tutor) => {
-      const groupNames = tutor.group.map((g) => g.name);
-
       return {
         _id: tutor._id,
         login: tutor.login,

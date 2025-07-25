@@ -497,6 +497,107 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
   }
 });
 
+router.put("/appartment/:id", authMiddleware, async (req, res) => {
+  try {
+    const findAppartment = await AppartmentModel.findById(req.params.id);
+    if (!findAppartment) {
+      return res.status(400).json({
+        status: "error",
+        message: "Bunday ijara ma'lumotlari topilmadi",
+      });
+    }
+
+    const updatedData = { ...req.body };
+
+    // Rasm fayllarini saqlash
+    if (req.files) {
+      const imageDir = path.join(__dirname, "../public/images");
+      if (!fs.existsSync(imageDir)) {
+        fs.mkdirSync(imageDir, { recursive: true });
+      }
+
+      // Rasmni o'zgartirish va yangi nom bilan saqlash
+      const handleImage = async (imageFile, label, existingUrl) => {
+        const fileName = `${Date.now()}_${label}_${imageFile.name}`;
+        const filePath = path.join(imageDir, fileName);
+        await imageFile.mv(filePath);
+
+        // eski rasmni o'chirish
+        if (existingUrl) {
+          const oldPath = path.join(__dirname, "..", existingUrl);
+          if (fs.existsSync(oldPath)) {
+            fs.unlinkSync(oldPath);
+          }
+        }
+
+        return `/public/images/${fileName}`;
+      };
+
+      if (req.files.boilerImage) {
+        const url = await handleImage(
+          req.files.boilerImage,
+          "boiler",
+          findAppartment.boilerImage?.url
+        );
+        updatedData.boilerImage = { url };
+      }
+
+      if (req.files.gazStove) {
+        const url = await handleImage(
+          req.files.gazStove,
+          "gaz",
+          findAppartment.gazStove?.url
+        );
+        updatedData.gazStove = { url };
+      }
+
+      if (req.files.chimney) {
+        const url = await handleImage(
+          req.files.chimney,
+          "chimney",
+          findAppartment.chimney?.url
+        );
+        updatedData.chimney = { url };
+      }
+
+      if (req.files.additionImage) {
+        const url = await handleImage(
+          req.files.additionImage,
+          "addition",
+          findAppartment.additionImage?.url
+        );
+        updatedData.additionImage = { url };
+      }
+    }
+
+    // joylashuvni alohida o'zgartirish
+    if (req.body.lat && req.body.lon) {
+      updatedData.location = {
+        lat: req.body.lat,
+        long: req.body.lon,
+      };
+    }
+
+    const updateAppartment = await AppartmentModel.findByIdAndUpdate(
+      req.params.id,
+      { $set: updatedData },
+      { new: true }
+    );
+
+    res.status(200).json({
+      status: "success",
+      message: "Ijara ma'lumotlari muvaffaqiyatli yangilandi",
+      data: updateAppartment,
+    });
+  } catch (error) {
+    console.error("Xatolik:", error);
+    res.status(500).json({
+      status: "error",
+      message: "Serverda xatolik yuz berdi",
+    });
+  }
+});
+
 router.delete("/appartment/clear", authMiddleware, async (req, res) => {
   try {
     const deletes = async () => {

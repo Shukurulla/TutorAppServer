@@ -116,7 +116,7 @@ router.get("/notification/push/:userId", async (req, res) => {
 
     const allNotifications = findNotifications.length;
     const unreadNotifications = findNotifications.filter(
-      (c) => c.isRead == true
+      (c) => c.isRead !== true
     ).length;
 
     res.json({
@@ -145,8 +145,9 @@ router.get("/notification/report/:userId", async (req, res) => {
     });
     const allNotifications = findNotifications.length;
     const unreadNotifications = findNotifications.filter(
-      (c) => c.isRead == true
+      (c) => c.isRead != true
     ).length;
+
     res.json({
       status: "success",
       data: findNotifications,
