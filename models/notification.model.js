@@ -12,7 +12,7 @@ const notificationSchema = new mongoose.Schema(
     },
     appartmentId: {
       type: String,
-      required: true
+      required: true,
     },
     isRead: {
       type: Boolean,
@@ -21,10 +21,13 @@ const notificationSchema = new mongoose.Schema(
     status: {
       type: String,
     },
+    need_data: {
+      type: String,
+    },
     notification_type: {
-      type:String,
-      enum: ['report', 'push' ]
-    }
+      type: String,
+      enum: ["report", "push"],
+    },
   },
   {
     timestamps: true,

@@ -7,19 +7,16 @@ import tutorModel from "../models/tutor.model.js";
 import StudentModel from "../models/student.model.js";
 import path from "path";
 import fs from "fs";
-import fileUpload from "express-fileupload";
 import { fileURLToPath } from "url";
 import adsModel from "../models/ads.model.js";
+import { uploadAdsImages } from "../middlewares/upload.middleware.js";
 
 const router = express.Router();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Express-fileupload middleware - xuddi appartment kabi
-router.use(fileUpload());
-
-router.post("/admin/ads", authMiddleware, async (req, res) => {
+router.post("/admin/ads", authMiddleware, uploadAdsImages, async (req, res) => {
   try {
     console.log("=== ADS CREATE BOSHLANDI ===");
     console.log("Body:", req.body);
@@ -34,7 +31,7 @@ router.post("/admin/ads", authMiddleware, async (req, res) => {
       });
     }
 
-    // Fayllar tekshirish - xuddi appartment kabi
+    // Fayllar tekshirish
     if (!req.files || !req.files.image) {
       return res.status(400).json({
         status: "error",
@@ -42,46 +39,17 @@ router.post("/admin/ads", authMiddleware, async (req, res) => {
       });
     }
 
-    const imageFile = req.files.image;
-    const iconFile = req.files.icon; // ixtiyoriy
+    const imageFile = req.files.image[0];
+    const iconFile = req.files.icon ? req.files.icon[0] : null;
 
-    console.log("Image file:", imageFile ? imageFile.name : "yo'q");
-    console.log("Icon file:", iconFile ? iconFile.name : "yo'q");
-
-    // Katalog yaratish - xuddi appartment kabi
-    const imageDir = path.join(__dirname, "../public/ads");
-    if (!fs.existsSync(imageDir)) {
-      fs.mkdirSync(imageDir, { recursive: true });
-    }
-
-    // Fayl nomlarini yaratish - appartment kabi timestamp bilan
-    const imageFileName = `${Date.now()}_image_${imageFile.name}`;
-    const imagePath = path.join(imageDir, imageFileName);
-
-    let iconFileName = "";
-    let iconPath = "";
-    if (iconFile) {
-      iconFileName = `${Date.now()}_icon_${iconFile.name}`;
-      iconPath = path.join(imageDir, iconFileName);
-    }
-
-    console.log("Image path:", imagePath);
-    console.log("Icon path:", iconPath);
-
-    // Fayllarni saqlash - xuddi appartment kabi mv() usuli bilan
-    await imageFile.mv(imagePath);
-    console.log("Image saqlandi");
-
-    if (iconFile) {
-      await iconFile.mv(iconPath);
-      console.log("Icon saqlandi");
-    }
+    console.log("Image file:", imageFile ? imageFile.filename : "yo'q");
+    console.log("Icon file:", iconFile ? iconFile.filename : "yo'q");
 
     // Ma'lumotlar bazasiga saqlash
     const newAd = new adsModel({
       title,
-      image: `/public/ads/${imageFileName}`,
-      icon: iconFile ? `/public/ads/${iconFileName}` : "",
+      image: `/public/ads/${imageFile.filename}`,
+      icon: iconFile ? `/public/ads/${iconFile.filename}` : "",
     });
 
     await newAd.save();

@@ -8,16 +8,16 @@ import StudentModel from "../models/student.model.js";
 import AppartmentModel from "../models/appartment.model.js";
 import path from "path";
 import fs from "fs";
-
 import { fileURLToPath } from "url";
 import NotificationModel from "../models/notification.model.js";
+import { uploadSingleImage } from "../middlewares/upload.middleware.js";
 
 const router = express.Router();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-router.post("/tutor/create", authMiddleware, async (req, res) => {
+router.post("/tutor/create", authMiddleware, uploadSingleImage, async (req, res) => {
   try {
     const { userId } = req.userData;
     const { login, password, group, name, phone } = req.body;
@@ -49,25 +49,8 @@ router.post("/tutor/create", authMiddleware, async (req, res) => {
     let imagePath = null;
 
     // Fayl yuklanganligini tekshirish
-    if (req.files && req.files.image) {
-      const imageFile = req.files.image;
-
-      // Faylni saqlash uchun katalog
-      const __filename = fileURLToPath(import.meta.url);
-      const __dirname = path.dirname(__filename);
-      const uploadDir = path.join(__dirname, "../public/images");
-
-      // Agar katalog mavjud bo'lmasa, uni yaratish
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-
-      // Faylni saqlash
-      const fileName = `${Date.now()}_${imageFile.name}`;
-      imagePath = `/public/images/${fileName}`;
-      const savePath = path.join(uploadDir, fileName);
-
-      await imageFile.mv(savePath);
+    if (req.file) {
+      imagePath = `/public/images/${req.file.filename}`;
     }
 
     const tutor = await tutorModel.create({
@@ -76,7 +59,7 @@ router.post("/tutor/create", authMiddleware, async (req, res) => {
       name,
       phone,
       password: hashedPassword,
-      image: imagePath, // Rasmingizning yo'li bazaga saqlanadi
+      image: imagePath,
     });
 
     res.status(200).json({ status: "success", data: tutor });
@@ -121,7 +104,7 @@ router.post("/tutor/login", async (req, res) => {
       },
     ]);
 
-    // Guruhlar bo‘yicha array yaratish
+    // Guruhlar bo'yicha array yaratish
     const findStudents = findTutor.group.map((item) => {
       const groupInfo = students.find((s) => s._id === item.name);
       return {
@@ -139,7 +122,7 @@ router.post("/tutor/login", async (req, res) => {
         .json({ status: "error", message: "Parol mos kelmadi" });
     }
 
-    // Token yaratish va ma'lumotlarni jo‘natish
+    // Token yaratish va ma'lumotlarni jo'natish
     const token = generateToken(findTutor._id);
     const { _id, name, role, createdAt, updatedAt, phone, image } = findTutor;
     const data = {
@@ -165,6 +148,7 @@ router.post("/tutor/login", async (req, res) => {
       .json({ status: "error", message: error.message });
   }
 });
+
 router.get("/tutor/my-students", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
@@ -187,7 +171,7 @@ router.get("/tutor/my-students", authMiddleware, async (req, res) => {
       "group.name student_id_number accommodation faculty.name first_name second_name third_name full_name short_name university image address role"
     );
 
-    // Guruhlar bo‘yicha studentlarni ajratish
+    // Guruhlar bo'yicha studentlarni ajratish
     const groupStudents = groupNames.map((groupName) => ({
       group: groupName,
       students: findStudents.filter((s) => s.group.name === groupName),
@@ -226,7 +210,7 @@ router.post("/tutor/add-group/:tutorId", async (req, res) => {
 
     res.status(200).json({
       status: "success",
-      message: "Guruhlar qo‘shildi",
+      message: "Guruhlar qo'shildi",
       tutor: updatedTutor,
     });
   } catch (error) {
@@ -285,7 +269,7 @@ router.get("/tutor/groups", authMiddleware, async (req, res) => {
     const findGroups = await StudentModel.find().select("group");
     const uniqueGroups = Array.from(
       new Map(
-        findGroups.map((item) => [item.group.name, item.group]) // `group.name` ni key sifatida ishlatamiz
+        findGroups.map((item) => [item.group.name, item.group])
       ).values()
     );
 
@@ -308,7 +292,6 @@ router.get("/tutor/students-group/:group", authMiddleware, async (req, res) => {
     });
     const totalPages = Math.ceil(totalCount / limitNumber);
 
-    // 🛠 **Appartment-larni status + location bilan olish**
     const findAppartments = await AppartmentModel.find().select(
       "status studentId location"
     );
@@ -333,7 +316,7 @@ router.get("/tutor/students-group/:group", authMiddleware, async (req, res) => {
             ? "blue"
             : studentAppartment.status
           : "blue",
-        location: studentAppartment?.location || null, // ✅ Endi location to'g'ri ishlaydi
+        location: studentAppartment?.location || null,
         hasFormFilled: studentAppartment ? "true" : "false",
       };
     });
@@ -358,7 +341,7 @@ router.get("/tutor/students-group/:group", authMiddleware, async (req, res) => {
 router.get("/tutor/profile", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
-    const findTutor = await tutorModel.findById(userId).populate("group"); // group ni populate qilish
+    const findTutor = await tutorModel.findById(userId);
 
     if (!findTutor) {
       return res
@@ -366,17 +349,13 @@ router.get("/tutor/profile", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "Bunday tutor topilmadi" });
     }
 
-    // Faqat kerakli studentlarni olish
     const groupNames = findTutor.group.map((g) => g.name);
     const students = await StudentModel.find({
       "group.name": { $in: groupNames },
     }).select("group department");
 
-    // Fakultetlarni tutor group bilan bog‘lash
     const tutorFaculty = findTutor.group.map((item) => {
       const student = students.find((c) => c.group.name === item.name);
-      console.log(student);
-
       return {
         name: item.name,
         faculty: student ? student.department.name : "Noma'lum fakultet",
@@ -447,7 +426,7 @@ router.get("/tutor/notification/:id", authMiddleware, async (req, res) => {
   }
 });
 
-router.put("/tutor/profile", authMiddleware, async (req, res) => {
+router.put("/tutor/profile", authMiddleware, uploadSingleImage, async (req, res) => {
   try {
     const { userId } = req.userData;
     const findTutor = await tutorModel.findById(userId);
@@ -465,84 +444,81 @@ router.put("/tutor/profile", authMiddleware, async (req, res) => {
     if (group) updateFields.group = JSON.parse(group);
 
     // Fayl yuklangan bo'lsa, uni saqlaymiz
-    if (req.files && req.files.image) {
-      const imageFile = req.files.image;
-      const allowedTypes = ["image/jpeg", "image/png", "image/gif"];
-      if (!allowedTypes.includes(imageFile.mimetype)) {
-        return res
-          .status(400)
-          .json({ message: "Faqat rasm fayllari qabul qilinadi" });
+    if (req.file) {
+      // Eski rasmni o'chirish
+      if (findTutor.image && !findTutor.image.includes("default-icon")) {
+        const oldImagePath = path.join(
+          __dirname,
+          "../public/images",
+          findTutor.image.split("/public/images/")[1]
+        );
+        if (fs.existsSync(oldImagePath)) {
+          fs.unlinkSync(oldImagePath);
+        }
       }
-
-      const fileExt = path.extname(imageFile.name);
-      const now = Date.now();
-      const fileName = `${now}${userId}${fileExt}`;
-      const uploadPath = path.join(__dirname, "../public/images", fileName);
-      await imageFile.mv(uploadPath);
-      updateFields.image = `http://45.134.39.117:5050/public/images/${fileName}`;
+      updateFields.image = `/public/images/${req.file.filename}`;
     }
 
-    // Faqat kerakli joyni o'zgartirish uchun $set ishlatamiz
     const updatedTutor = await tutorModel.findByIdAndUpdate(
       userId,
       { $set: updateFields },
       { new: true }
     );
 
-    res.status(200).json({ message: "Tutor yangilandi", tutor: updatedTutor });
+    res.status(200).json({ 
+      status: "success",
+      message: "Tutor yangilandi", 
+      tutor: updatedTutor 
+    });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
 
-router.post(
-  "/tutor/delete-group/:tutorId",
-  authMiddleware,
-  async (req, res) => {
-    try {
-      const findTutor = await tutorModel.findById(req.params.tutorId);
-      if (!findTutor) {
-        return res
-          .status(401)
-          .json({ status: "error", message: "Bunday tutor topilmadi" });
-      }
-      const { groupName } = req.body;
-      const { group } = findTutor;
-
-      const findGroup = group.find((c) => c.name == groupName);
-      if (!findGroup) {
-        return res.status(401).json({
-          status: "error",
-          message: `Bu tutorda "${group} nomli guruh mavjud emas"`,
-        });
-      }
-      const deletedGroup = group.filter((c) => c.name !== groupName);
-
-      const editedTutor = await tutorModel.findByIdAndUpdate(
-        findTutor._id,
-        {
-          $set: {
-            group: deletedGroup,
-          },
-        },
-        { new: true }
-      );
-      if (!editedTutor) {
-        return res.status(500).json({
-          status: "error",
-          message: "Tutor malumotlarini ozgartirishda xatolik ketdi",
-          data: editedTutor,
-        });
-      }
-      res.status(200).json({
-        status: "success",
-        message: "Tutor malumotlari muaffaqiyatli ozgartirildi",
-      });
-    } catch (error) {
-      res.status(500).json({ status: "error", message: error.message });
+router.post("/tutor/delete-group/:tutorId", authMiddleware, async (req, res) => {
+  try {
+    const findTutor = await tutorModel.findById(req.params.tutorId);
+    if (!findTutor) {
+      return res
+        .status(401)
+        .json({ status: "error", message: "Bunday tutor topilmadi" });
     }
+    const { groupName } = req.body;
+    const { group } = findTutor;
+
+    const findGroup = group.find((c) => c.name == groupName);
+    if (!findGroup) {
+      return res.status(401).json({
+        status: "error",
+        message: `Bu tutorda "${group} nomli guruh mavjud emas"`,
+      });
+    }
+    const deletedGroup = group.filter((c) => c.name !== groupName);
+
+    const editedTutor = await tutorModel.findByIdAndUpdate(
+      findTutor._id,
+      {
+        $set: {
+          group: deletedGroup,
+        },
+      },
+      { new: true }
+    );
+    if (!editedTutor) {
+      return res.status(500).json({
+        status: "error",
+        message: "Tutor malumotlarini ozgartirishda xatolik ketdi",
+        data: editedTutor,
+      });
+    }
+    res.status(200).json({
+      status: "success",
+      message: "Tutor malumotlari muaffaqiyatli ozgartirildi",
+    });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
   }
-);
+});
 
 router.delete("/tutor/delete/:id", authMiddleware, async (req, res) => {
   try {

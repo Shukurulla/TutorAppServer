@@ -8,46 +8,16 @@ import StudentModel from "../models/student.model.js";
 import AppartmentModel from "../models/appartment.model.js";
 import path from "path";
 import fs from "fs";
-import multer from "multer"; // Import multer
 import { fileURLToPath } from "url";
 import NotificationModel from "../models/notification.model.js";
+import { uploadSingleImage } from "../middlewares/upload.middleware.js";
+import axios from "axios";
 
 const router = express.Router();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Multer Configuration
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, "../public/images");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir); // Save files to the "public/images" directory
-  },
-  filename: (req, file, cb) => {
-    const userId = req.userData.userId; // Get the tutor's ID from the request
-    const fileExt = path.extname(file.originalname); // Get the file extension
-    const fileName = `${Date.now()}_${userId}${fileExt}`; // Create a unique filename
-    cb(null, fileName);
-  },
-});
-
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = ["image/jpeg", "image/png", "image/gif"];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true); // Accept the file
-  } else {
-    cb(new Error("Faqat rasm fayllari qabul qilinadi"), false); // Reject the file
-  }
-};
-
-const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: { fileSize: 50 * 1024 * 1024 }, // Limit file size to 50MB
-});
 router.post("/student/sign", async (req, res) => {
   try {
     function formatDate(timestamp) {
@@ -62,7 +32,7 @@ router.post("/student/sign", async (req, res) => {
     const { login, password } = req.body;
     const findStudent = await StudentModel.findOne({
       student_id_number: login.toString(),
-    }).lean(); // <-- MUHIM! Bu documentni oddiy obyektga aylantiradi
+    }).lean();
 
     if (findStudent) {
       const token = generateToken(findStudent._id);
@@ -159,10 +129,11 @@ router.get("/student/profile", authMiddleware, async (req, res) => {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
+
 router.put(
   "/tutor/profile",
   authMiddleware,
-  upload.single("image"),
+  uploadSingleImage,
   async (req, res) => {
     try {
       const { userId } = req.userData;
@@ -182,8 +153,7 @@ router.put(
 
       // Handle file upload with Multer
       if (req.file) {
-        const imageUrl = `http://45.134.39.117:5050/public/images/${req.file.filename}`;
-        updateFields.image = imageUrl;
+        updateFields.image = `/public/images/${req.file.filename}`;
 
         // Delete the old image if it exists
         if (findTutor.image && !findTutor.image.includes("default-icon")) {
@@ -205,9 +175,11 @@ router.put(
         { new: true }
       );
 
-      res
-        .status(200)
-        .json({ message: "Tutor yangilandi", tutor: updatedTutor });
+      res.status(200).json({
+        status: "success",
+        message: "Tutor yangilandi",
+        tutor: updatedTutor,
+      });
     } catch (error) {
       console.error("Error:", error);
       res.status(500).json({ status: "error", message: error.message });
