@@ -34,7 +34,7 @@ const adsStorage = multer.diskStorage({
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     const fileExt = path.extname(file.originalname);
-    const prefix = file.fieldname; // 'image' yoki 'icon'
+    const prefix = file.mimetype.split("/")[1]; // 'image' yoki 'icon'
     cb(null, `${uniqueSuffix}_${prefix}${fileExt}`);
   },
 });
