@@ -123,6 +123,7 @@ const appartmentSchema = new mongoose.Schema(
     description: {
       type: String,
     },
+    
   },
   { timestamps: true }
 );

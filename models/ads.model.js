@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 const adsSchema = new mongoose.Schema({
   title: {
     type: String,
-    required: true,
   },
   image: {
     type: String,
