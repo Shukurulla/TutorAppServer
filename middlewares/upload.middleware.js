@@ -65,6 +65,7 @@ export const uploadMultipleImages = multer({
   { name: "gazStove", maxCount: 1 },
   { name: "chimney", maxCount: 1 },
   { name: "additionImage", maxCount: 1 },
+  { name: "image", maxCount: 1 },
 ]);
 
 export const uploadAdsImages = multer({
