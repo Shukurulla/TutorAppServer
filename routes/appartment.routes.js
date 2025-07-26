@@ -485,6 +485,8 @@ router.put(
       }
 
       const updatedData = { ...req.body };
+      console.log(updatedData);
+      console.log(req.files);
 
       // Agar yangi rasmlar yuklangan bo'lsa
       if (req.files) {

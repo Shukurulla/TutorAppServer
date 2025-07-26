@@ -42,7 +42,6 @@ router.post(
       const imageFile = req.files.image[0];
       const iconFile = req.files.icon ? req.files.icon[0] : null;
 
-      // Ma'lumotlar bazasiga saqlash
       const newAd = new adsModel({
         title,
         image: `/public/ads/${imageFile.filename}`,
