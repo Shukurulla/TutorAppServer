@@ -8,7 +8,7 @@ const router = express.Router();
 
 router.post("/notification/report", authMiddleware, async (req, res) => {
   try {
-    const { userId, message, status, appartmentId } = req.body;
+    const { userId, message, status, appartmentId, need_data } = req.body;
     const findStudent = await StudentModel.findById(userId);
     if (!findStudent) {
       return res.status(400).json({
@@ -31,6 +31,7 @@ router.post("/notification/report", authMiddleware, async (req, res) => {
       status,
       userId,
       appartmentId,
+      need_data,
       notification_type: "report",
     });
 
