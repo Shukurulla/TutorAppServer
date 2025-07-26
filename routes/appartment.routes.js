@@ -499,7 +499,9 @@ router.put(
                 fs.unlinkSync(oldPath);
               }
             }
-            return `/public/images/${req.files[fieldName][0].filename}`;
+            return `/public/images/${req.files[fieldName][0].mimetype}.${
+              req.files[fieldName][0].mimetype.split("/")[1]
+            }`;
           }
           return existingUrl;
         };
