@@ -23,7 +23,7 @@ const tutorSchema = new mongoose.Schema(
       default: "tutor",
     },
     group: {
-      type: [Object], // <-- Object emas, array sifatida belgilaymiz
+      type: [Object],
       required: true,
     },
     image: {

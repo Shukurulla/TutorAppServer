@@ -20,12 +20,15 @@ router.post(
   async (req, res) => {
     try {
       const { studentId } = req.body;
-      const studentAppartments = await AppartmentModel.findOne({
+
+      // Studentning current appartmenti bor-yo'qligini tekshirish
+      const currentAppartment = await AppartmentModel.findOne({
         studentId,
+        current: true,
         needNew: false,
       });
 
-      if (studentAppartments) {
+      if (currentAppartment) {
         return res.status(401).json({
           status: "error",
           message: "Siz oldin ijara ma'lumotlarini kiritgansiz",
@@ -58,6 +61,7 @@ router.post(
         chimney: { url: `/public/images/${chimney.filename}` },
         additionImage: { url: `/public/images/${additionImage.filename}` },
         needNew: false,
+        current: true, // Yangi appartment current bo'ladi
         location: {
           lat: req.body.lat,
           long: req.body.lon,
@@ -100,6 +104,11 @@ router.get("/appartment/by-group/:name", async (req, res) => {
     const appartments = await AppartmentModel.find();
 
     const filteredAppartments = findStudents.map((student) => {
+      // Eng oxirgi appartmentni topish
+      const studentAppartments = appartments
+        .filter((c) => c.studentId == student.student_id_number)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
       return {
         student: {
           group: student.group,
@@ -108,9 +117,7 @@ router.get("/appartment/by-group/:name", async (req, res) => {
           full_name: student.full_name,
           faculty: student.faculty,
         },
-        appartment: appartments
-          .filter((item) => item.current == true)
-          .filter((c) => c.studentId == student.student_id_number)[0],
+        appartment: studentAppartments[0] || null,
       };
     });
     res.json({ status: "success", data: filteredAppartments });
@@ -163,44 +170,38 @@ router.get(
       const { userId } = req.userData;
       const findTutor = await tutorModel.findById(userId);
       if (!findTutor) {
-        return res
-          .status(400)
-          .json({ status: "error", message: "Bunday tutor topilmadi" });
+        return res.status(400).json({
+          status: "error",
+          message: "Bunday tutor topilmadi",
+        });
       }
 
       const tutorGroups = findTutor.group.map((g) => g.name);
-
       const findStudents = await StudentModel.find({
         "group.name": { $in: tutorGroups },
       });
 
-      const appartments = await AppartmentModel.find({ current: true });
-      if (!appartments.length) {
+      // Har bir student uchun eng oxirgi appartmentni topish
+      const studentAppartments = [];
+      for (const student of findStudents) {
+        const latestAppartment = await AppartmentModel.findOne({
+          studentId: student._id,
+        }).sort({ createdAt: -1 }); // Eng oxirgisini olish
+
+        if (latestAppartment) {
+          studentAppartments.push(latestAppartment);
+        }
+      }
+
+      if (!studentAppartments.length) {
         return res.json({
           message:
             "Sizning guruhingizdagi studentlar hali ijara ma'lumotlarini qo'shmagan",
         });
       }
 
-      const studentAppartments = findStudents
-        .map((student) =>
-          appartments.find(
-            (c) => c.studentId.toString() === student._id.toString()
-          )
-        )
-        .filter(Boolean);
-
-      const uniqueAppartments = Array.from(
-        new Map(
-          studentAppartments.map((appartment) => [
-            appartment._id.toString(),
-            appartment,
-          ])
-        ).values()
-      );
-
-      const totalCount = uniqueAppartments.length;
-      const statusCounts = uniqueAppartments.reduce(
+      const totalCount = studentAppartments.length;
+      const statusCounts = studentAppartments.reduce(
         (acc, { status }) => {
           if (status === "Being checked") {
             acc.blue += 1;
@@ -389,20 +390,21 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
     limit = parseInt(limit);
 
     if (!["red", "yellow", "green", "blue"].includes(status)) {
-      return res
-        .status(401)
-        .json({ status: "error", message: "Bunday status mavjud emas" });
+      return res.status(401).json({
+        status: "error",
+        message: "Bunday status mavjud emas",
+      });
     }
 
     const findTutor = await tutorModel.findById(userId);
     if (!findTutor) {
-      return res
-        .status(400)
-        .json({ status: "error", message: "Bunday tutor topilmadi" });
+      return res.status(400).json({
+        status: "error",
+        message: "Bunday tutor topilmadi",
+      });
     }
 
     const tutorGroups = findTutor.group.map((g) => g.name);
-
     const findStudents = await StudentModel.find({
       "group.name": { $in: tutorGroups },
     });
@@ -414,46 +416,44 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
       });
     }
 
-    const appartments = await AppartmentModel.find({
-      current: true,
-      status: status === "blue" ? "Being checked" : status,
-      studentId: { $in: findStudents.map((s) => s._id) },
-    })
-      .skip((page - 1) * limit)
-      .limit(limit);
+    // Har bir student uchun eng oxirgi appartmentni topish
+    const studentLatestAppartments = [];
+    for (const student of findStudents) {
+      const latestAppartment = await AppartmentModel.findOne({
+        studentId: student._id,
+        status: status === "blue" ? "Being checked" : status,
+      }).sort({ createdAt: -1 });
 
-    const total = await AppartmentModel.countDocuments({
-      current: true,
-      status: status === "blue" ? "Being checked" : status,
-      studentId: { $in: findStudents.map((s) => s._id) },
-    });
+      if (latestAppartment) {
+        studentLatestAppartments.push({
+          student: {
+            full_name: student.full_name,
+            image: student.image,
+            faculty: student.faculty,
+            group: student.group,
+            province: student.province,
+            gender: student.gender,
+            department: student.department,
+            specialty: student.specialty,
+          },
+          appartment: latestAppartment,
+        });
+      }
+    }
 
+    // Pagination
+    const total = studentLatestAppartments.length;
     const totalPages = Math.ceil(total / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedData = studentLatestAppartments.slice(startIndex, endIndex);
+
     const nextPage = page < totalPages ? page + 1 : null;
     const prevPage = page > 1 ? page - 1 : null;
 
-    const withStudent = appartments.map((item) => {
-      const student = findStudents.find(
-        (c) => c._id.toString() === item.studentId.toString()
-      );
-      return {
-        student: {
-          full_name: student?.full_name,
-          image: student?.image,
-          faculty: student?.faculty,
-          group: student?.group,
-          province: student?.province,
-          gender: student?.gender,
-          department: student?.department,
-          specialty: student?.specialty,
-        },
-        appartment: item,
-      };
-    });
-
     res.json({
       status: "success",
-      data: withStudent,
+      data: paginatedData,
       pagination: {
         total,
         page,
@@ -464,9 +464,10 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
       },
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ status: "error", message: "Serverda xatolik yuz berdi" });
+    res.status(500).json({
+      status: "error",
+      message: "Serverda xatolik yuz berdi",
+    });
   }
 });
 
@@ -485,8 +486,8 @@ router.put(
       }
 
       const updatedData = { ...req.body };
-      console.log(updatedData);
-      console.log(req.files);
+      console.log("Body ma'lumotlari:", updatedData);
+      console.log("Yuklangan fayllar:", req.files);
 
       // Agar yangi rasmlar yuklangan bo'lsa
       if (req.files) {
@@ -499,44 +500,44 @@ router.put(
                 fs.unlinkSync(oldPath);
               }
             }
-            return `/public/images/${req.files[fieldName][0].filename}.${
-              req.files[fieldName][0].mimetype.split("/")[1]
-            }`;
+            // Yangi rasm URL ini to'g'ri formatda qaytarish
+            return `/public/images/${req.files[fieldName][0].filename}`;
           }
           return existingUrl;
         };
 
-        if (req.files.boilerImage) {
+        // Har bir rasm turini alohida tekshirish va yangilash
+        if (req.files.boilerImage && req.files.boilerImage[0]) {
           updatedData.boilerImage = {
             url: handleImageUpdate(
               "boilerImage",
               findAppartment.boilerImage?.url
             ),
-            status: findAppartment.boilerImage?.status || "Being checked",
+            status: "Being checked", // Yangi rasm yuklanganda status qayta tekshiriladi
           };
         }
 
-        if (req.files.gazStove) {
+        if (req.files.gazStove && req.files.gazStove[0]) {
           updatedData.gazStove = {
             url: handleImageUpdate("gazStove", findAppartment.gazStove?.url),
-            status: findAppartment.gazStove?.status || "Being checked",
+            status: "Being checked", // Yangi rasm yuklanganda status qayta tekshiriladi
           };
         }
 
-        if (req.files.chimney) {
+        if (req.files.chimney && req.files.chimney[0]) {
           updatedData.chimney = {
             url: handleImageUpdate("chimney", findAppartment.chimney?.url),
-            status: findAppartment.chimney?.status || "Being checked",
+            status: "Being checked", // Yangi rasm yuklanganda status qayta tekshiriladi
           };
         }
 
-        if (req.files.additionImage) {
+        if (req.files.additionImage && req.files.additionImage[0]) {
           updatedData.additionImage = {
             url: handleImageUpdate(
               "additionImage",
               findAppartment.additionImage?.url
             ),
-            status: findAppartment.additionImage?.status || "Being checked",
+            status: "Being checked", // Yangi rasm yuklanganda status qayta tekshiriladi
           };
         }
       }
@@ -547,7 +548,18 @@ router.put(
           lat: req.body.lat,
           long: req.body.lon,
         };
+
+        // Body dan lat va lon ni o'chirish (chunki location objekti bor)
+        delete updatedData.lat;
+        delete updatedData.lon;
       }
+
+      // Agar biron bir rasm yangilangan bo'lsa, umumiy statusni ham "Being checked" qilish
+      if (req.files && Object.keys(req.files).length > 0) {
+        updatedData.status = "Being checked";
+      }
+
+      console.log("Yangilanayotgan ma'lumotlar:", updatedData);
 
       const updateAppartment = await AppartmentModel.findByIdAndUpdate(
         req.params.id,
@@ -561,10 +573,11 @@ router.put(
         data: updateAppartment,
       });
     } catch (error) {
-      console.error("Xatolik:", error);
+      console.error("Appartment yangilashda xatolik:", error);
       res.status(500).json({
         status: "error",
         message: "Serverda xatolik yuz berdi",
+        error: error.message,
       });
     }
   }

@@ -54,12 +54,26 @@ router.get("/statistics/appartments/map", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
     isAdmin(userId, res);
-    const appartments = await AppartmentModel.find({ current: true }).select(
-      "location status"
-    );
+
+    // Eng oxirgi appartmentlarni olish
+    const allStudents = await StudentModel.find().select("_id");
+    const latestAppartments = [];
+
+    for (const student of allStudents) {
+      const latestAppartment = await AppartmentModel.findOne({
+        studentId: student._id,
+      })
+        .select("location status")
+        .sort({ createdAt: -1 });
+
+      if (latestAppartment) {
+        latestAppartments.push(latestAppartment);
+      }
+    }
+
     res.status(200).json({
       status: "success",
-      data: appartments.filter((c) => c.status !== "Being checked"),
+      data: latestAppartments.filter((c) => c.status !== "Being checked"),
     });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
@@ -91,9 +105,22 @@ router.get(
     try {
       const { userId } = req.userData;
       isAdmin(userId, res);
-      const appartments = await AppartmentModel.find({ current: true }).select(
-        "status typeOfBoiler"
-      );
+
+      // Eng oxirgi appartmentlarni olish
+      const allStudents = await StudentModel.find().select("_id");
+      const latestAppartments = [];
+
+      for (const student of allStudents) {
+        const latestAppartment = await AppartmentModel.findOne({
+          studentId: student._id,
+        })
+          .select("status typeOfBoiler")
+          .sort({ createdAt: -1 });
+
+        if (latestAppartment) {
+          latestAppartments.push(latestAppartment);
+        }
+      }
 
       const boilerTypes = [
         "Ariston kotyol",
@@ -107,7 +134,7 @@ router.get(
       const filteredAppartments = boilerTypes.map((item) => {
         return {
           title: item,
-          total: appartments
+          total: latestAppartments
             .filter((c) => c.status != "Being checked")
             .filter((c) => c.typeOfBoiler == item).length,
         };
@@ -121,6 +148,7 @@ router.get(
     }
   }
 );
+
 router.get(
   "/statistics/appartment/smallDistrict",
   authMiddleware,
@@ -128,9 +156,22 @@ router.get(
     try {
       const { userId } = req.userData;
       isAdmin(userId, res);
-      const appartments = await AppartmentModel.find({ current: true }).select(
-        "status smallDistrict"
-      );
+
+      // Eng oxirgi appartmentlarni olish
+      const allStudents = await StudentModel.find().select("_id");
+      const latestAppartments = [];
+
+      for (const student of allStudents) {
+        const latestAppartment = await AppartmentModel.findOne({
+          studentId: student._id,
+        })
+          .select("status smallDistrict")
+          .sort({ createdAt: -1 });
+
+        if (latestAppartment) {
+          latestAppartments.push(latestAppartment);
+        }
+      }
 
       const smallDistricts = [
         "20 - kichik tuman",
@@ -147,7 +188,7 @@ router.get(
       const filteredAppartments = smallDistricts.map((item) => {
         return {
           title: item,
-          total: appartments
+          total: latestAppartments
             .filter((c) => c.status != "Being checked")
             .filter((c) => c.smallDistrict.trim() == item.trim()).length,
         };
@@ -161,6 +202,7 @@ router.get(
     }
   }
 );
+
 router.get("/statistics/region", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
@@ -212,6 +254,7 @@ router.get("/statistics/students/all", async (req, res) => {
     res.json({ status: "error", message: error.message });
   }
 });
+
 router.post(
   "/statistics/appartment/filter",
   authMiddleware,
@@ -219,42 +262,48 @@ router.post(
     try {
       const { status, smallDistrict, province, course } = req.body;
 
-      let filter = {}; // Asosiy filter
+      let studentFilter = {};
 
-      // Bo‘sh bo‘lmagan qiymatlarni filterga qo‘shish
-      if (status) filter.status = status;
-      if (smallDistrict) filter.smallDistrict = smallDistrict;
+      // Student filter yaratish
+      if (province) studentFilter["province.name"] = province;
+      if (course) studentFilter["level.name"] = course;
 
-      // Student ID larni olish
+      // Studentlarni topish
+      let targetStudents = [];
       if (province || course) {
-        let studentFilter = {};
-        if (province) studentFilter["province.name"] = province; // ✅ TO‘G‘RI YOZILDI
-        if (course) studentFilter["level.name"] = course;
+        targetStudents = await StudentModel.find(studentFilter, "_id");
+      } else {
+        targetStudents = await StudentModel.find({}, "_id");
+      }
 
-        // Studentlarni topish
-        const students = await StudentModel.find(studentFilter, "_id");
-        const studentIds = students.map((student) => student._id); // **FAQAT ID-larni olish**
+      if (targetStudents.length === 0) {
+        return res.json({
+          status: "success",
+          data: [],
+        });
+      }
 
-        if (studentIds.length == 0) {
-          return res.json({
-            status: "success",
-            data: [],
-          });
-        }
+      // Har bir student uchun eng oxirgi appartmentni topish
+      const filteredAppartments = [];
+      for (const student of targetStudents) {
+        let appartmentFilter = { studentId: student._id };
 
-        if (studentIds.length > 0) {
-          filter.studentId = { $in: studentIds }; // ✅ **Barcha studentlar ID-lari qo‘shildi**
+        // Appartment filter qo'shish
+        if (status) appartmentFilter.status = status;
+        if (smallDistrict) appartmentFilter.smallDistrict = smallDistrict;
+
+        const latestAppartment = await AppartmentModel.findOne(appartmentFilter)
+          .select("location status")
+          .sort({ createdAt: -1 });
+
+        if (latestAppartment) {
+          filteredAppartments.push(latestAppartment);
         }
       }
 
-      // Natijani olish
-      const appartments = await AppartmentModel.find(filter).select(
-        "location status"
-      );
-
       res.json({
         status: "success",
-        data: appartments.filter((c) => c.status !== "Being checked"),
+        data: filteredAppartments.filter((c) => c.status !== "Being checked"),
       });
     } catch (error) {
       console.error("Xatolik:", error);
@@ -264,12 +313,13 @@ router.post(
     }
   }
 );
+
 router.post("/statistics/faculty-data", authMiddleware, async (req, res) => {
   try {
     const { faculty } = req.body; // Filter ma'lumotlari body orqali keladi
 
     const matchStage = {
-      "accommodation.name": { $ne: "O‘z uyida" }, // "O‘z uyida" bo‘lmagan talabalar
+      "accommodation.name": { $ne: "O'z uyida" }, // "O'z uyida" bo'lmagan talabalar
     };
 
     if (faculty?.length) {
@@ -280,20 +330,25 @@ router.post("/statistics/faculty-data", authMiddleware, async (req, res) => {
       { $match: matchStage }, // Faqat kerakli studentlarni olish
       {
         $lookup: {
-          from: "appartments", // AppartmentModel bilan bog‘lash
+          from: "appartments", // AppartmentModel bilan bog'lash
           localField: "_id",
           foreignField: "studentId",
           as: "rentedInfo",
         },
       },
       {
+        $addFields: {
+          hasRentedInfo: { $gt: [{ $size: "$rentedInfo" }, 0] },
+        },
+      },
+      {
         $group: {
-          _id: "$department.name", // Fakultet bo‘yicha guruhlash
-          jami: { $sum: 1 }, // Har bir fakultet bo‘yicha umumiy studentlar soni
+          _id: "$department.name", // Fakultet bo'yicha guruhlash
+          jami: { $sum: 1 }, // Har bir fakultet bo'yicha umumiy studentlar soni
           ijarada: {
             $sum: {
               $cond: {
-                if: { $gt: [{ $size: "$rentedInfo" }, 0] },
+                if: "$hasRentedInfo",
                 then: 1,
                 else: 0,
               },
