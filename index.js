@@ -15,6 +15,7 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 import ChatRouter from "./routes/chat.routes.js";
+import tutorModel from "./models/tutor.model.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -76,11 +77,13 @@ io.on("connection", (socket) => {
   });
 
   // TUTOR xabar yuboradi
-  socket.on("sendMessage", async ({ tutorId, message, groups }) => {
+  socket.on("sendMessage", async ({ tutorId, message }) => {
     try {
       if (!Array.isArray(groups)) {
         return console.error("Gruppalar massiv bo'lishi kerak");
       }
+
+      const { groups } = await tutorModel.findById(tutorId);
 
       const messagesToSave = groups.map((group) => ({
         tutorId,
