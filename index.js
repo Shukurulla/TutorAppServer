@@ -79,12 +79,7 @@ io.on("connection", (socket) => {
   // TUTOR xabar yuboradi
   socket.on("sendMessage", async ({ tutorId, message }) => {
     try {
-      if (!Array.isArray(groups)) {
-        return console.error("Gruppalar massiv bo'lishi kerak");
-      }
-
       console.log({ tutorId, message });
-      
 
       const { groups } = await tutorModel.findById(tutorId);
 
@@ -97,7 +92,7 @@ io.on("connection", (socket) => {
         },
       }));
 
-      const message= await Chat.insertMany(messagesToSave); // bir nechta hujjatlarni birdaniga qo‘shadi
+      const newMessage = await Chat.insertMany(messagesToSave); // bir nechta hujjatlarni birdaniga qo‘shadi
 
       // Xabar yuborilayotgan barcha guruhlar uchun xabarni emit qilish
       groups.forEach((group) => {
@@ -108,8 +103,7 @@ io.on("connection", (socket) => {
           createdAt: new Date(),
         });
       });
-      console.log(message);
-      
+      console.log(newMessage);
     } catch (error) {
       console.error("Xatolik sendMessage da:", error);
     }
