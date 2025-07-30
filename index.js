@@ -82,6 +82,7 @@ io.on("connection", (socket) => {
       console.log({ tutorId, message });
 
       const tutor = await tutorModel.findById(tutorId);
+      console.log(tutor);
 
       const messagesToSave = tutor.groups.map((group) => ({
         tutorId,
