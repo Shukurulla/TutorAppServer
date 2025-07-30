@@ -57,7 +57,7 @@ router.delete("/messages/delete/:id", authMiddleware, async (req, res) => {
   }
 });
 
-router.delete("/messages/edit-message", authMiddleware, async (req, res) => {
+router.put("/messages/edit-message", authMiddleware, async (req, res) => {
   try {
     const { message, messageId } = req.body;
 
