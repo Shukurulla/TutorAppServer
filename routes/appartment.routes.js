@@ -471,6 +471,29 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
   }
 });
 
+router.get(
+  "/appartment/my-appartments/:id",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const findStudent = await StudentModel.findById(id);
+      if (!findStudent) {
+        return res
+          .status(400)
+          .json({ status: "error", message: "Bunday student topilmadi" });
+      }
+
+      const findAppartments = await AppartmentModel.find({ studentId: id });
+
+      res.status(200).json({ status: "success", data: findAppartments });
+    } catch (error) {
+      res.status(500).json({ status: "error", message: error.message });
+    }
+  }
+);
+
 router.put(
   "/appartment/:id",
   authMiddleware,

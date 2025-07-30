@@ -20,39 +20,14 @@ const __dirname = path.dirname(__filename);
 
 router.post("/student/sign", async (req, res) => {
   try {
-    function formatDate(timestamp) {
-      const date = new Date(timestamp * 1000);
-      const day = String(date.getDate()).padStart(2, "0");
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const year = date.getFullYear();
-
-      return `${day}.${month}.${year}`;
-    }
-
     const { login, password } = req.body;
-    const findStudent = await StudentModel.findOne({
-      student_id_number: login.toString(),
-    }).lean();
-
-    if (findStudent) {
-      const token = generateToken(findStudent._id);
-      return res.json({
-        status: "success",
-        student: {
-          ...findStudent,
-          birth_date: formatDate(findStudent.birth_date),
-        },
-        token,
-      });
-    }
-
     const { data } = await axios.post(
       `${process.env.HEMIS_API_URL}/auth/login`,
       { login, password }
     );
 
     if (!data.data.token) {
-      return res.json({ status: "error", message: "Token olinmadi" });
+      return res.json({ status: "error", message: "Bunday student topilmadi" });
     }
 
     const account = await axios.get(`${process.env.HEMIS_API_URL}/account/me`, {
@@ -61,10 +36,55 @@ router.post("/student/sign", async (req, res) => {
       },
     });
 
-    const student = await StudentModel.create(account.data.data);
-    const token = generateToken(student._id);
+    if (!account) {
+      const findMockStudent = await StudentModel.findOne({
+        student_id_number: login,
+      }).lean();
+      if (!findMockStudent) {
+        return res
+          .status(400)
+          .json({ status: "error", message: "Bunday student topilmadi" });
+      }
 
-    res.json({ status: "success", student: student.toObject(), token });
+      const token = generateToken(findMockStudent._id);
+      return res
+        .status(200)
+        .json({ status: "success", student: findMockStudent, token });
+    }
+
+    const findStudent = await StudentModel.findOne({
+      student_id_number: account.data.data.student_id_number,
+    }).lean();
+
+    if (!findStudent) {
+      const student = await StudentModel.create(account.data.data);
+      const token = generateToken(student._id);
+      return res.json({
+        status: "success",
+        student: {
+          student,
+        },
+        token,
+      });
+    }
+
+    if (findStudent) {
+      const updateStudent = await StudentModel.findByIdAndUpdate(
+        findStudent._id,
+        {
+          $set: { ...account.data.data },
+        },
+        { new: true }
+      );
+      const token = generateToken(updateStudent._id);
+      return res.json({
+        status: "success",
+        student: {
+          ...updateStudent,
+        },
+        token,
+      });
+    }
   } catch (error) {
     res.json({ message: error.message });
   }
