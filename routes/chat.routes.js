@@ -40,22 +40,28 @@ router.get("/messages/by-group/:id", authMiddleware, async (req, res) => {
   }
 });
 
-router.delete("/messages/delete/:id", authMiddleware, async (req, res) => {
-  try {
-    const findMessage = await chatModel.findById(req.params.id);
-    if (!findMessage) {
-      return res
-        .status(400)
-        .json({ status: "error", message: "Bunday message topilmadi" });
+router.delete(
+  "/messages/delete-all/:tutorId",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const findMessages = await chatModel.find({
+        tutorId: req.params.tutorId,
+      });
+      for (let i = 0; i < findMessages.length; i++) {
+        await chatModel.findByIdAndDelete(findMessages[i]._id);
+      }
+      res
+        .status(200)
+        .json({
+          status: "success",
+          message: "Messagelar muaffaqiyatli ochirildi",
+        });
+    } catch (error) {
+      res.status(500).json({ status: "error", message: error.message });
     }
-    await chatModel.findByIdAndDelete(findMessage._id);
-    res
-      .status(200)
-      .json({ status: "success", message: "Message muaffaqiyatli ochirildi" });
-  } catch (error) {
-    res.status(500).json({ status: "error", message: error.message });
   }
-});
+);
 
 router.put("/messages/edit-message", authMiddleware, async (req, res) => {
   try {
