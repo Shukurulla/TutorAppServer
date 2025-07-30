@@ -1,7 +1,7 @@
 import express from "express";
-import chatModel from "../models/chat.model";
-import authMiddleware from "../middlewares/auth.middleware";
-import tutorModel from "../models/tutor.model";
+import chatModel from "../models/chat.model.js";
+import authMiddleware from "../middlewares/auth.middleware.js";
+import tutorModel from "../models/tutor.model.js";
 
 const router = express.Router();
 
