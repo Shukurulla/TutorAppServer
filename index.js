@@ -16,6 +16,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import ChatRouter from "./routes/chat.routes.js";
 import tutorModel from "./models/tutor.model.js";
+import chatModel from "./models/chat.model.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -93,7 +94,7 @@ io.on("connection", (socket) => {
         },
       }));
 
-      const newMessage = await Chat.insertMany(messagesToSave); // bir nechta hujjatlarni birdaniga qo‘shadi
+      const newMessage = await chatModel.insertMany(messagesToSave); // bir nechta hujjatlarni birdaniga qo‘shadi
 
       // Xabar yuborilayotgan barcha guruhlar uchun xabarni emit qilish
       groups.forEach((group) => {
