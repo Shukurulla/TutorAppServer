@@ -14,6 +14,7 @@ router.get("/messages/all", authMiddleware, async (req, res) => {
   }
 });
 
+// chat.routes.js - yangilangan versiya
 router.get("/messages/my-messages/:id", authMiddleware, async (req, res) => {
   try {
     const findTutor = await tutorModel.findById(req.params.id);
@@ -23,9 +24,33 @@ router.get("/messages/my-messages/:id", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "bunday tutor topilmadi" });
     }
 
-    const messages = await chatModel.find({ tutorId: req.params.id });
+    // Barcha xabarlarni olamiz
+    const allMessages = await chatModel.find({ tutorId: req.params.id });
+    
+    // Unique xabarlarni map orqali guruhlash
+    const uniqueMessages = new Map();
+    
+    allMessages.forEach(message => {
+      const key = `${message.message}_${message.createdAt.getTime()}`;
+      if (!uniqueMessages.has(key)) {
+        uniqueMessages.set(key, {
+          _id: message._id,
+          tutorId: message.tutorId,
+          message: message.message,
+          createdAt: message.createdAt,
+          updatedAt: message.updatedAt,
+          __v: message.__v,
+          groups: [message.group] // Birinchi guruhni qo'shamiz
+        });
+      } else {
+        // Agar xabar mavjud bo'lsa, faqat guruhni qo'shamiz
+        uniqueMessages.get(key).groups.push(message.group);
+      }
+    });
 
+    const messages = Array.from(uniqueMessages.values());
     res.status(200).json({ status: "success", data: messages });
+    
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
   }
