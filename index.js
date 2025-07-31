@@ -138,7 +138,7 @@ app.get("/get-banners", async (req, res) => {
     "/public/banner/telegram_banner.png",
     "/public/banner/website_banner.png",
   ];
-  res.status(200).json({ status: "success", data: arrbanner });
+  res.status(200).json({ status: "success", data: arrBanner });
 });
 
 // Error handling middleware
