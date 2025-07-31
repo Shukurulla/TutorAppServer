@@ -17,77 +17,87 @@ const router = express.Router();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 router.post("/student/sign", async (req, res) => {
+  const { login, password } = req.body;
+
+  let tokenData;
   try {
-    const { login, password } = req.body;
+    // 1. HEMIS'ga login
     const { data } = await axios.post(
       `${process.env.HEMIS_API_URL}/auth/login`,
       { login, password }
     );
-
-    if (!data.data.token) {
-      return res.json({ status: "error", message: "Bunday student topilmadi" });
-    }
-
-    const account = await axios.get(`${process.env.HEMIS_API_URL}/account/me`, {
-      headers: {
-        Authorization: `Bearer ${data.data.token}`,
-      },
-    });
-
-    if (!account) {
-      const findMockStudent = await StudentModel.findOne({
-        student_id_number: login,
-      }).lean();
-      if (!findMockStudent) {
-        return res
-          .status(400)
-          .json({ status: "error", message: "Bunday student topilmadi" });
-      }
-
-      const token = generateToken(findMockStudent._id);
-      return res
-        .status(200)
-        .json({ status: "success", student: findMockStudent, token });
-    }
-
-    const findStudent = await StudentModel.findOne({
-      student_id_number: account.data.data.student_id_number,
+    tokenData = data;
+  } catch (err) {
+    // ❗ Agar HEMIS 401 bersa, lokal bazani tekshiramiz
+    const findMockStudent = await StudentModel.findOne({
+      student_id_number: login,
     }).lean();
 
-    if (!findStudent) {
-      const student = await StudentModel.create(account.data.data);
-      const token = generateToken(student._id);
-      return res.json({
-        status: "success",
-        student: {
-          student,
-        },
-        token,
+    if (!findMockStudent) {
+      return res.status(401).json({
+        status: "error",
+        message:
+          "Login ma'lumotlari noto‘g‘ri, va bunday student bazada topilmadi",
       });
     }
 
-    if (findStudent) {
-      const updateStudent = await StudentModel.findByIdAndUpdate(
-        findStudent._id,
-        {
-          $set: { ...account.data.data },
-        },
-        { new: true }
-      );
-      const token = generateToken(updateStudent._id);
-      return res.json({
-        status: "success",
-        student: {
-          ...updateStudent,
-        },
-        token,
-      });
-    }
-  } catch (error) {
-    res.json({ message: error.message });
+    const token = generateToken(findMockStudent._id);
+    return res.status(200).json({
+      status: "success",
+      student: findMockStudent,
+      token,
+    });
   }
+
+  // 2. Agar login muvaffaqiyatli bo‘lsa, token bo‘yicha account olish
+  let account;
+  try {
+    const response = await axios.get(
+      `${process.env.HEMIS_API_URL}/account/me`,
+      {
+        headers: {
+          Authorization: `Bearer ${tokenData.data.token}`,
+        },
+      }
+    );
+    account = response.data;
+  } catch (err) {
+    return res.status(500).json({
+      status: "error",
+      message: "Tizimdan ma'lumot olishda xatolik",
+    });
+  }
+
+  // 3. Studentni bazada izlash
+  const findStudent = await StudentModel.findOne({
+    student_id_number: account.data?.student_id_number,
+  }).lean();
+
+  if (!findStudent) {
+    // 4. Agar yo‘q bo‘lsa, yangi student yaratamiz
+    const student = await StudentModel.create(account.data);
+    const token = generateToken(student._id);
+    return res.status(200).json({
+      status: "success",
+      student,
+      token,
+    });
+  }
+
+  // 5. Agar topilsa, yangilaymiz
+  const updateStudent = await StudentModel.findByIdAndUpdate(
+    findStudent._id,
+    { $set: { ...account.data } },
+    { new: true }
+  );
+
+  const token = generateToken(updateStudent._id);
+  return res.status(200).json({
+    status: "success",
+    student: updateStudent,
+    token,
+  });
 });
 
 router.post("/student/create-byside", async (req, res) => {
