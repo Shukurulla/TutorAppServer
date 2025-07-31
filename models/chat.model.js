@@ -1,3 +1,4 @@
+// chat.model.js - yangilangan versiya
 import mongoose from "mongoose";
 
 const ChatSchema = new mongoose.Schema(
@@ -10,16 +11,19 @@ const ChatSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    group: {
-      id: {
-        type: Number,
-        required: true,
+    groups: [
+      {
+        // Bir necha guruh uchun array
+        id: {
+          type: Number,
+          required: true,
+        },
+        name: {
+          type: String,
+          required: true,
+        },
       },
-      name: {
-        type: String,
-        required: true,
-      },
-    },
+    ],
   },
   {
     timestamps: true,

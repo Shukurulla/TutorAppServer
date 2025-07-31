@@ -65,6 +65,7 @@ mongoose
     console.error("Database connection error:", error);
   });
 
+// index.js - Socket handler yangilangan versiya
 io.on("connection", (socket) => {
   console.log("Yangi foydalanuvchi ulandi:", socket.id);
 
@@ -74,7 +75,7 @@ io.on("connection", (socket) => {
 
     const roomName = `group_${groupId}`;
     socket.join(roomName);
-    console.log(`Student ${studentId} ${roomName} ga qo‘shildi`);
+    console.log(`Student ${studentId} ${roomName} ga qo'shildi`);
   });
 
   // TUTOR xabar yuboradi
@@ -85,26 +86,26 @@ io.on("connection", (socket) => {
       const tutor = await tutorModel.findById(tutorId);
       console.log(tutor);
 
-      const messagesToSave = tutor.group.map((group) => ({
+      // Bitta xabar yaratamiz barcha guruhlar bilan
+      const newMessage = await chatModel.create({
         tutorId,
         message,
-        group: {
+        groups: tutor.group.map((group) => ({
           id: group.id,
           name: group.name,
-        },
-      }));
-
-      const newMessage = await chatModel.insertMany(messagesToSave); // bir nechta hujjatlarni birdaniga qo‘shadi
+        })),
+      });
 
       // Xabar yuborilayotgan barcha guruhlar uchun xabarni emit qilish
-      groups.forEach((group) => {
-        socket.to(group.id.toString()).emit("receiveMessage", {
+      tutor.group.forEach((group) => {
+        socket.to(`group_${group.id}`).emit("receiveMessage", {
           tutorId,
           message,
           group,
-          createdAt: new Date(),
+          createdAt: newMessage.createdAt,
         });
       });
+
       console.log(newMessage);
     } catch (error) {
       console.error("Xatolik sendMessage da:", error);
