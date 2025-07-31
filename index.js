@@ -130,6 +130,17 @@ app.get("/", async (req, res) => {
   res.json({ message: "Server is running successfully" });
 });
 
+app.get("/get-banners", async (req, res) => {
+  const arrBanner = [
+    "/public/banner/alert_banner.png",
+    "/public/banner/facebook_banner.png",
+    "/public/banner/insta_banner.png",
+    "/public/banner/telegram_banner.png",
+    "/public/banner/website_banner.png",
+  ];
+  res.status(200).json({ status: "success", data: arrbanner });
+});
+
 // Error handling middleware
 app.use((error, req, res, next) => {
   console.error("Server Error:", error);
