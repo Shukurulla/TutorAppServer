@@ -116,6 +116,19 @@ router.post("/student/sign", async (req, res) => {
   });
 });
 
+router.get("/student/existAppartment", authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.userData;
+    const findAppartment = await AppartmentModel.findOne({ studentId: userId });
+
+    res
+      .status(200)
+      .json({ status: "success", exist: findAppartment ? true : false });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
 router.post("/student/create-byside", async (req, res) => {
   try {
     const student = await StudentModel.create(req.body);
