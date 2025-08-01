@@ -98,17 +98,13 @@ router.post("/student/sign", async (req, res) => {
   const findAppartment = await AppartmentModel.findOne({
     studentId: updateStudent._id,
   });
-  if (findAppartment) {
-    return res.status(200).json({
-      status: "success",
-      student: { ...updateStudent, findAppartment: true },
-      token,
-    });
-  }
 
   return res.status(200).json({
     status: "success",
-    student: updateStudent,
+    student: {
+      ...updateStudent,
+      findAppartment: findAppartment ? true : false,
+    },
     token,
   });
 });
