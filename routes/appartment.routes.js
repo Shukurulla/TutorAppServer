@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 import StudentModel from "../models/student.model.js";
 import tutorModel from "../models/tutor.model.js";
 import { uploadMultipleImages } from "../middlewares/upload.middleware.js";
+import NotificationModel from "../models/notification.model.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -500,6 +501,8 @@ router.put(
   uploadMultipleImages,
   async (req, res) => {
     try {
+      const { userId } = req.userData;
+
       const findAppartment = await AppartmentModel.findById(req.params.id);
       if (!findAppartment) {
         return res.status(400).json({
@@ -589,6 +592,14 @@ router.put(
         { $set: updatedData },
         { new: true }
       );
+
+      await NotificationModel.create({
+        userId,
+        notification_type: "report",
+        message: "Tekshirilmoqda",
+        status: "blue",
+        appartmentId: req.params.id,
+      });
 
       res.status(200).json({
         status: "success",
