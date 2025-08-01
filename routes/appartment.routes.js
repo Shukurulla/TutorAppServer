@@ -593,6 +593,10 @@ router.put(
         { new: true }
       );
 
+      if (req.body.notificationId) {
+        await NotificationModel.findByIdAndDelete(req.req.body.notificationId);
+      }
+
       await NotificationModel.create({
         userId,
         notification_type: "report",
