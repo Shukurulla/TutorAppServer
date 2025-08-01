@@ -42,7 +42,7 @@ router.post("/notification/report", authMiddleware, async (req, res) => {
 });
 router.post("/notification/push", authMiddleware, async (req, res) => {
   try {
-    const { userId, message, status, appartmentId } = req.body;
+    const { userId, message, status, appartmentId,notification_type } = req.body;
     const findStudent = await StudentModel.findById(userId);
     if (!findStudent) {
       return res.status(400).json({
@@ -230,5 +230,7 @@ router.put("/notification/push/:userId/read", async (req, res) => {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
+
+
 
 export default router;
