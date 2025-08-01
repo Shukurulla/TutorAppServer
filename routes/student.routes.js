@@ -50,7 +50,7 @@ router.post("/student/sign", async (req, res) => {
       status: "success",
       student: {
         ...findMockStudent,
-        existAppartment: !!existAppartment,
+        existAppartment: !existAppartment,
       },
       token,
     });
@@ -89,7 +89,7 @@ router.post("/student/sign", async (req, res) => {
       status: "success",
       student: {
         ...student.toObject(),
-        existAppartment: !!existAppartment,
+        existAppartment: !existAppartment,
       },
       token,
     });
@@ -110,7 +110,7 @@ router.post("/student/sign", async (req, res) => {
     status: "success",
     student: {
       ...updateStudent.toObject(),
-      existAppartment: !!existAppartment,
+      existAppartment: !existAppartment,
     },
     token,
   });
