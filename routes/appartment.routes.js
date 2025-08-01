@@ -593,7 +593,7 @@ router.put(
         { new: true }
       );
 
-      console.log(req.body);
+      console.log(updatedData.notificationId);
 
       if (req.body.notificationId) {
         await NotificationModel.findByIdAndDelete(req.body.notificationId);
