@@ -597,7 +597,7 @@ router.put(
 
       if (req.body.notificationId) {
         await NotificationModel.findByIdAndDelete(
-          JSON.parse(req.body.notificationId)
+          body.notificationId.replace(/"/g, "")
         );
       }
 
