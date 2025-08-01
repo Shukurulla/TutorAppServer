@@ -23,14 +23,12 @@ router.post("/student/sign", async (req, res) => {
 
   let tokenData;
   try {
-    // 1. HEMIS'ga login
     const { data } = await axios.post(
       `${process.env.HEMIS_API_URL}/auth/login`,
       { login, password }
     );
     tokenData = data;
   } catch (err) {
-    // ❗ Agar HEMIS 401 bersa, lokal bazani tekshiramiz
     const findMockStudent = await StudentModel.findOne({
       student_id_number: login,
     }).lean();
@@ -44,14 +42,20 @@ router.post("/student/sign", async (req, res) => {
     }
 
     const token = generateToken(findMockStudent._id);
+    const existAppartment = await AppartmentModel.findOne({
+      userId: findMockStudent._id,
+    });
+
     return res.status(200).json({
       status: "success",
-      student: findMockStudent,
+      student: {
+        ...findMockStudent,
+        existAppartment: !!existAppartment,
+      },
       token,
     });
   }
 
-  // 2. Agar login muvaffaqiyatli bo‘lsa, token bo‘yicha account olish
   let account;
   try {
     const response = await axios.get(
@@ -70,23 +74,27 @@ router.post("/student/sign", async (req, res) => {
     });
   }
 
-  // 3. Studentni bazada izlash
   const findStudent = await StudentModel.findOne({
     student_id_number: account.data?.student_id_number,
   }).lean();
 
   if (!findStudent) {
-    // 4. Agar yo‘q bo‘lsa, yangi student yaratamiz
     const student = await StudentModel.create(account.data);
     const token = generateToken(student._id);
+    const existAppartment = await AppartmentModel.findOne({
+      userId: student._id,
+    });
+
     return res.status(200).json({
       status: "success",
-      student,
+      student: {
+        ...student.toObject(),
+        existAppartment: !!existAppartment,
+      },
       token,
     });
   }
 
-  // 5. Agar topilsa, yangilaymiz
   const updateStudent = await StudentModel.findByIdAndUpdate(
     findStudent._id,
     { $set: { ...account.data } },
@@ -94,16 +102,15 @@ router.post("/student/sign", async (req, res) => {
   );
 
   const token = generateToken(updateStudent._id);
-
-  const findAppartment = await AppartmentModel.findOne({
-    studentId: updateStudent._id,
+  const existAppartment = await AppartmentModel.findOne({
+    userId: updateStudent._id,
   });
 
   return res.status(200).json({
     status: "success",
     student: {
-      ...updateStudent,
-      findAppartment: findAppartment ? true : false,
+      ...updateStudent.toObject(),
+      existAppartment: !!existAppartment,
     },
     token,
   });
