@@ -177,31 +177,41 @@ router.get(
       }
 
       const tutorGroups = findTutor.group.map((g) => g.name);
-      const findStudents = await StudentModel.find({
+      const students = await StudentModel.find({
         "group.name": { $in: tutorGroups },
-      });
+      }).select("_id");
 
-      // Har bir student uchun eng oxirgi appartmentni topish
-      const studentAppartments = [];
-      for (const student of findStudents) {
-        const latestAppartment = await AppartmentModel.findOne({
-          studentId: student._id,
-        }).sort({ createdAt: -1 }); // Eng oxirgisini olish
-
-        if (latestAppartment) {
-          studentAppartments.push(latestAppartment);
-        }
-      }
-
-      if (!studentAppartments.length) {
+      if (!students.length) {
         return res.json({
-          message:
-            "Sizning guruhingizdagi studentlar hali ijara ma'lumotlarini qo'shmagan",
+          message: "Sizning guruhingizdagi studentlar topilmadi",
         });
       }
 
-      const totalCount = studentAppartments.length;
-      const statusCounts = studentAppartments.reduce(
+      const studentIds = students.map((s) => s._id);
+
+      const latestAppartments = await AppartmentModel.aggregate([
+        { $match: { studentId: { $in: studentIds } } },
+        { $sort: { createdAt: -1 } },
+        {
+          $group: {
+            _id: "$studentId",
+            latest: { $first: "$$ROOT" },
+          },
+        },
+        {
+          $replaceRoot: { newRoot: "$latest" },
+        },
+      ]);
+
+      if (!latestAppartments.length) {
+        return res.json({
+          message:
+            "Sizning guruhingizdagi studentlar hali ijara ma'lumotlarini qo‘shmagan",
+        });
+      }
+
+      const totalCount = latestAppartments.length;
+      const statusCounts = latestAppartments.reduce(
         (acc, { status }) => {
           if (status === "Being checked") {
             acc.blue += 1;
@@ -218,21 +228,21 @@ router.get(
             green: {
               percent:
                 ((statusCounts.green / totalCount) * 100).toFixed(2) + "%",
-              total: statusCounts.green || 0,
+              total: statusCounts.green,
             },
             yellow: {
               percent:
                 ((statusCounts.yellow / totalCount) * 100).toFixed(2) + "%",
-              total: statusCounts.yellow || 0,
+              total: statusCounts.yellow,
             },
             red: {
               percent: ((statusCounts.red / totalCount) * 100).toFixed(2) + "%",
-              total: statusCounts.red || 0,
+              total: statusCounts.red,
             },
             blue: {
               percent:
                 ((statusCounts.blue / totalCount) * 100).toFixed(2) + "%",
-              total: statusCounts.blue || 0,
+              total: statusCounts.blue,
             },
           }
         : {
