@@ -594,7 +594,7 @@ router.put(
       );
 
       if (req.body.notificationId) {
-        await NotificationModel.findByIdAndDelete(req.req.body.notificationId);
+        await NotificationModel.findByIdAndDelete(req.body.notificationId);
       }
 
       await NotificationModel.create({
