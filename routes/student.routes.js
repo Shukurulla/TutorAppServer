@@ -17,6 +17,7 @@ const router = express.Router();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 router.post("/student/sign", async (req, res) => {
   const { login, password } = req.body;
 
@@ -93,6 +94,18 @@ router.post("/student/sign", async (req, res) => {
   );
 
   const token = generateToken(updateStudent._id);
+
+  const findAppartment = await AppartmentModel.findOne({
+    studentId: updateStudent._id,
+  });
+  if (findAppartment) {
+    return res.status(200).json({
+      status: "success",
+      student: { ...updateStudent, findAppartment: true },
+      token,
+    });
+  }
+
   return res.status(200).json({
     status: "success",
     student: updateStudent,
