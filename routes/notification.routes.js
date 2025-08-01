@@ -62,6 +62,7 @@ router.post("/notification/push", authMiddleware, async (req, res) => {
       message,
       status,
       userId,
+      appartmentId,
       notification_type: "push",
     });
 
