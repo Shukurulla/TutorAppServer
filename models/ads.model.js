@@ -12,6 +12,10 @@ const adsSchema = new mongoose.Schema(
     icon: {
       type: String,
     },
+    link:{
+      type:String,
+      required: true
+    }
   },
   {
     timestamps: true,
