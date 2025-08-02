@@ -131,7 +131,7 @@ router.get("/ads/:id", async (req, res) => {
 router.put("/ads/:id", authMiddleware, uploadAdsImages, async (req, res) => {
   try {
     const { id } = req.params;
-    const { title } = req.body;
+    const { title, link } = req.body;
 
     // Ads mavjudligini tekshirish
     const existingAd = await adsModel.findById(id);
@@ -145,6 +145,7 @@ router.put("/ads/:id", authMiddleware, uploadAdsImages, async (req, res) => {
     // Yangilash uchun ma'lumotlar
     const updateData = {};
     if (title) updateData.title = title;
+    if (link) updateData.link = link;
 
     // Yangi fayllar yuklangan bo'lsa
     if (req.files) {

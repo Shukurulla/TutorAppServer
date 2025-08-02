@@ -12,10 +12,11 @@ const adsSchema = new mongoose.Schema(
     icon: {
       type: String,
     },
-    link:{
-      type:String,
-      required: true
-    }
+    link: {
+      type: String,
+      default: null,
+      required: true,
+    },
   },
   {
     timestamps: true,
