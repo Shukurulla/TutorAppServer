@@ -406,27 +406,42 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
     }
 
     const tutorGroups = findTutor.group.map((g) => g.name);
-    const findStudents = await StudentModel.find({
+    const students = await StudentModel.find({
       "group.name": { $in: tutorGroups },
     });
 
-    if (!findStudents.length) {
+    if (!students.length) {
       return res.status(400).json({
         status: "error",
         message: "Bu guruhlarda studentlar topilmadi",
       });
     }
 
-    // Har bir student uchun eng oxirgi appartmentni topish
-    const studentLatestAppartments = [];
-    for (const student of findStudents) {
-      const latestAppartment = await AppartmentModel.findOne({
-        studentId: student._id,
-        status: status === "blue" ? "Being checked" : status,
-      }).sort({ createdAt: -1 });
+    const studentIds = students.map((s) => s._id);
+    const queryStatus = status === "blue" ? "Being checked" : status;
 
-      if (latestAppartment) {
-        studentLatestAppartments.push({
+    // Barcha kerakli appartmentlar
+    const appartments = await AppartmentModel.find({
+      studentId: { $in: studentIds },
+      status: queryStatus,
+    })
+      .sort({ createdAt: -1 }) // Eng oxirgilari oldinda
+      .lean();
+
+    // Har bir student uchun eng so'nggi appartmentni tanlash
+    const latestAppartmentsMap = new Map();
+    for (const appartment of appartments) {
+      const key = appartment.studentId.toString();
+      if (!latestAppartmentsMap.has(key)) {
+        latestAppartmentsMap.set(key, appartment);
+      }
+    }
+
+    const result = [];
+    for (const student of students) {
+      const appartment = latestAppartmentsMap.get(student._id.toString());
+      if (appartment) {
+        result.push({
           student: {
             full_name: student.full_name,
             image: student.image,
@@ -437,20 +452,17 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
             department: student.department,
             specialty: student.specialty,
           },
-          appartment: latestAppartment,
+          appartment,
         });
       }
     }
 
     // Pagination
-    const total = studentLatestAppartments.length;
+    const total = result.length;
     const totalPages = Math.ceil(total / limit);
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
-    const paginatedData = studentLatestAppartments.slice(startIndex, endIndex);
-
-    const nextPage = page < totalPages ? page + 1 : null;
-    const prevPage = page > 1 ? page - 1 : null;
+    const paginatedData = result.slice(startIndex, endIndex);
 
     res.json({
       status: "success",
@@ -460,11 +472,12 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
         page,
         limit,
         totalPages,
-        nextPage,
-        prevPage,
+        nextPage: page < totalPages ? page + 1 : null,
+        prevPage: page > 1 ? page - 1 : null,
       },
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       status: "error",
       message: "Serverda xatolik yuz berdi",
