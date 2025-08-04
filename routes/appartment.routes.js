@@ -463,10 +463,13 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
     const paginatedData = result.slice(startIndex, endIndex);
-
+    let duplicatedData = [];
+    for (let i = 0; i < 20; i++) {
+      duplicatedData.push(paginatedData[0]);
+    }
     res.json({
       status: "success",
-      data: paginatedData,
+      data: duplicatedData,
       pagination: {
         total,
         page,
