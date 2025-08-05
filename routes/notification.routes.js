@@ -24,18 +24,16 @@ router.post("/notification/report", authMiddleware, async (req, res) => {
       });
     }
 
-    const findNotification = await Notification.findOne({
+    const findNotification = await NotificationModel.findOne({
       userId,
       need_data,
       status,
     });
     if (findNotification) {
-      return res
-        .status(400)
-        .json({
-          status: "error",
-          message: "Bu student uchun bunday notification yuborilgan",
-        });
+      return res.status(400).json({
+        status: "error",
+        message: "Bu student uchun bunday notification yuborilgan",
+      });
     }
     // await AppartmentModel.findByIdAndDelete(findAppartment._id);
 
