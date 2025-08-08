@@ -255,6 +255,7 @@ router.get(
       res.status(200).json({
         status: "success",
         statistics: statusPercentages,
+        total: totalCount, // umumiy total shu yerda qo‘shildi
       });
     } catch (error) {
       console.error(error);
