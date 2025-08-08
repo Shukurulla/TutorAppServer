@@ -131,8 +131,17 @@ router.get("/appartment/by-group/:name", async (req, res) => {
 
 router.post("/appartment/check", authMiddleware, async (req, res) => {
   try {
-    const { appartmentId, status, chimney, gazStove, boiler, additionImage } =
-      req.body;
+    const { appartmentId, chimney, gazStove, boiler, additionImage } = req.body;
+
+    let status = null;
+
+    if ([chimney, gazStove, boiler].includes("red")) {
+      status = "red";
+    } else if ([chimney, gazStove, boiler].includes("yellow")) {
+      status = "yellow";
+    } else {
+      status = "green";
+    }
 
     const findAppartment = await AppartmentModel.findById(appartmentId);
     if (!findAppartment) {
