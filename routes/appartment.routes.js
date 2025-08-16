@@ -8,6 +8,7 @@ import StudentModel from "../models/student.model.js";
 import tutorModel from "../models/tutor.model.js";
 import { uploadMultipleImages } from "../middlewares/upload.middleware.js";
 import NotificationModel from "../models/notification.model.js";
+import mongoose from "mongoose";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -171,13 +172,13 @@ router.post("/appartment/check", authMiddleware, async (req, res) => {
       .json({ status: "error", message: error.message });
   }
 });
-
 router.get(
   "/appertment/statistics/for-tutor",
   authMiddleware,
   async (req, res) => {
     try {
       const { userId } = req.userData;
+
       const findTutor = await tutorModel.findById(userId);
       if (!findTutor) {
         return res.status(400).json({
@@ -186,22 +187,34 @@ router.get(
         });
       }
 
+      // Tutor guruhlarini olish
       const tutorGroups = findTutor.group.map((g) => g.name);
+
+      // Shu guruhlardagi studentlarni olish
       const findStudents = await StudentModel.find({
         "group.name": { $in: tutorGroups },
-      });
+      }).select("_id");
 
-      // Har bir student uchun eng oxirgi appartmentni topish
-      const studentAppartments = [];
-      for (const student of findStudents) {
-        const latestAppartment = await AppartmentModel.findOne({
-          studentId: student._id,
-        }).sort({ createdAt: -1 }); // Eng oxirgisini olish
-
-        if (latestAppartment) {
-          studentAppartments.push(latestAppartment);
-        }
+      if (!findStudents.length) {
+        return res.json({
+          message: "Sizning guruhingizdagi studentlar hali mavjud emas",
+        });
       }
+
+      // studentId larni string qilib olish
+      const studentIds = findStudents.map((s) => String(s._id));
+
+      // Aggregation bilan oxirgi appartmentlarni olish
+      const studentAppartments = await AppartmentModel.aggregate([
+        { $match: { studentId: { $in: studentIds } } },
+        { $sort: { createdAt: -1 } },
+        {
+          $group: {
+            _id: "$studentId",
+            latestAppartment: { $first: "$$ROOT" },
+          },
+        },
+      ]);
 
       if (!studentAppartments.length) {
         return res.json({
@@ -210,9 +223,11 @@ router.get(
         });
       }
 
+      // Statistikalar hisoblash
       const totalCount = studentAppartments.length;
       const statusCounts = studentAppartments.reduce(
-        (acc, { status }) => {
+        (acc, { latestAppartment }) => {
+          const status = latestAppartment.status;
           if (status === "Being checked") {
             acc.blue += 1;
           } else {
@@ -223,39 +238,29 @@ router.get(
         { green: 0, yellow: 0, red: 0, blue: 0 }
       );
 
-      const statusPercentages = totalCount
-        ? {
-            green: {
-              percent:
-                ((statusCounts.green / totalCount) * 100).toFixed(2) + "%",
-              total: statusCounts.green || 0,
-            },
-            yellow: {
-              percent:
-                ((statusCounts.yellow / totalCount) * 100).toFixed(2) + "%",
-              total: statusCounts.yellow || 0,
-            },
-            red: {
-              percent: ((statusCounts.red / totalCount) * 100).toFixed(2) + "%",
-              total: statusCounts.red || 0,
-            },
-            blue: {
-              percent:
-                ((statusCounts.blue / totalCount) * 100).toFixed(2) + "%",
-              total: statusCounts.blue || 0,
-            },
-          }
-        : {
-            green: { percent: "0%", total: 0 },
-            yellow: { percent: "0%", total: 0 },
-            red: { percent: "0%", total: 0 },
-            blue: { percent: "0%", total: 0 },
-          };
+      const statusPercentages = {
+        green: {
+          percent: ((statusCounts.green / totalCount) * 100).toFixed(2) + "%",
+          total: statusCounts.green,
+        },
+        yellow: {
+          percent: ((statusCounts.yellow / totalCount) * 100).toFixed(2) + "%",
+          total: statusCounts.yellow,
+        },
+        red: {
+          percent: ((statusCounts.red / totalCount) * 100).toFixed(2) + "%",
+          total: statusCounts.red,
+        },
+        blue: {
+          percent: ((statusCounts.blue / totalCount) * 100).toFixed(2) + "%",
+          total: statusCounts.blue,
+        },
+      };
 
       res.status(200).json({
         status: "success",
         statistics: statusPercentages,
-        total: totalCount, // umumiy total shu yerda qo‘shildi
+        total: totalCount,
       });
     } catch (error) {
       console.error(error);
