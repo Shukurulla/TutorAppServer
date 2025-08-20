@@ -10,6 +10,7 @@ import StatisticsRouter from "./routes/statistics.routes.js";
 import FilledRouter from "./routes/detail.routes.js";
 import NotificationRouter from "./routes/notification.routes.js";
 import AdsRouter from "./routes/ads.routes.js";
+import TutorNotificationRouter from "./routes/tutorNotificaton.routes.js";
 import mongoose from "mongoose";
 import cors from "cors";
 import path from "path";
@@ -125,6 +126,7 @@ app.use(FilledRouter);
 app.use(NotificationRouter);
 app.use(AdsRouter);
 app.use(ChatRouter);
+app.use("/tutor-notification", TutorNotificationRouter);
 
 app.get("/", async (req, res) => {
   res.json({ message: "Server is running successfully" });

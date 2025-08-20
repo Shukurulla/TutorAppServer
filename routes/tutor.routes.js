@@ -510,22 +510,6 @@ router.post("/tutor/notification", authMiddleware, async (req, res) => {
   }
 });
 
-router.get("/tutor/notification/:id", authMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const findTutor = await tutorModel.findById(id);
-    if (!findTutor) {
-      return res
-        .status(401)
-        .json({ status: "error", message: "Bunday tutor topilmadi" });
-    }
-    const notification = await NotificationModel.find({ userId: id });
-    res.json({ status: "success", data: notification });
-  } catch (error) {
-    res.status(500).json({ status: "error", message: error.message });
-  }
-});
-
 router.put(
   "/tutor/profile",
   authMiddleware,

@@ -172,6 +172,7 @@ router.post("/appartment/check", authMiddleware, async (req, res) => {
       .json({ status: "error", message: error.message });
   }
 });
+
 router.get(
   "/appertment/statistics/for-tutor",
   authMiddleware,
