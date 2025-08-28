@@ -387,21 +387,38 @@ router.get("/tutor/students-group/:group", authMiddleware, async (req, res) => {
     const pageNumber = Math.max(1, parseInt(page, 10) || 1);
     const limitNumber = Math.max(1, parseInt(limit, 10) || 20);
 
-    const totalCount = await StudentModel.countDocuments({
+    const totalCountWithName = await StudentModel.countDocuments({
       "group.name": group,
     });
+    const totalCountWithCode = await StudentModel.countDocuments({
+      "group.id": group,
+    });
+
+    const totalCount = totalCountWithName || totalCountWithCode;
+
     const totalPages = Math.ceil(totalCount / limitNumber);
 
     const findAppartments = await AppartmentModel.find().select(
       "status studentId location"
     );
 
-    const findStudents = await StudentModel.find({ "group.name": group })
+    const findStudentsWithName = await StudentModel.find({
+      "group.name": group,
+    })
       .select(
         "group.name province gender faculty.name first_name second_name third_name full_name short_name university image address role"
       )
       .skip((pageNumber - 1) * limitNumber)
       .limit(limitNumber);
+
+    const findStudentsWithCode = await StudentModel.find({ "group.id": group })
+      .select(
+        "group.id province gender faculty.name first_name second_name third_name full_name short_name university image address role"
+      )
+      .skip((pageNumber - 1) * limitNumber)
+      .limit(limitNumber);
+
+    const findStudents = findStudentsWithName || findStudentsWithCode;
 
     const studentsWithStatus = findStudents.map((student) => {
       const studentAppartment = findAppartments.find(

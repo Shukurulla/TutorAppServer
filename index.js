@@ -18,6 +18,8 @@ import { fileURLToPath } from "url";
 import ChatRouter from "./routes/chat.routes.js";
 import tutorModel from "./models/tutor.model.js";
 import chatModel from "./models/chat.model.js";
+import StudentModel from "./models/student.model.js";
+import axios from "axios";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

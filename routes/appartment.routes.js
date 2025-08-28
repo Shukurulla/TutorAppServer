@@ -282,14 +282,14 @@ router.get("/faculties", async (req, res) => {
 router.get("/groups", async (req, res) => {
   try {
     const { search } = req.query;
-    const uniqueFaculties = await StudentModel.distinct("group.name");
+    const uniqueFaculties = await StudentModel.distinct("group");
 
     if (!search) {
       return res.json({ data: uniqueFaculties });
     }
 
     const filteredFaculties = uniqueFaculties.filter((faculty) =>
-      faculty.toLowerCase().includes(search.toLowerCase())
+      faculty.name.toLowerCase().includes(search.toLowerCase())
     );
 
     res.json({ data: filteredFaculties });
