@@ -11,6 +11,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import NotificationModel from "../models/notification.model.js";
 import { uploadSingleImage } from "../middlewares/upload.middleware.js";
+import tutorNotificationModel from "../models/tutorNotification.model.js";
 
 const router = express.Router();
 
@@ -285,10 +286,11 @@ router.get("/tutor/my-students", authMiddleware, async (req, res) => {
   }
 });
 
-router.post("/tutor/add-group/:tutorId", async (req, res) => {
+// Tutorga guruh qo'shish (yangi route)
+router.post("/tutor/add-group/:tutorId", authMiddleware, async (req, res) => {
   try {
     const { tutorId } = req.params;
-    const { groups } = req.body; // massiv: [{ name: "guruh nomi" }, {...}, ...]
+    const { groups } = req.body; // massiv: [{ name: "guruh nomi", code: "guruh kodi" }, {...}, ...]
 
     const findTutor = await tutorModel.findById(tutorId);
     if (!findTutor) {
@@ -297,22 +299,48 @@ router.post("/tutor/add-group/:tutorId", async (req, res) => {
         .json({ status: "error", message: "Bunday tutor topilmadi" });
     }
 
-    if (!Array.isArray(groups)) {
+    if (!Array.isArray(groups) || groups.length === 0) {
       return res
         .status(400)
-        .json({ status: "error", message: "Groups massivda bo'lishi kerak" });
+        .json({
+          status: "error",
+          message: "Groups massivda bo'lishi kerak va bo'sh bo'lmasligi kerak",
+        });
+    }
+
+    // Yangi guruhlarni qo'shish (duplikatlarni tekshirish)
+    const existingGroupNames = findTutor.group.map((g) => g.name);
+    const newGroups = groups.filter(
+      (g) => !existingGroupNames.includes(g.name)
+    );
+
+    if (newGroups.length === 0) {
+      return res.status(400).json({
+        status: "error",
+        message: "Barcha guruhlar allaqachon qo'shilgan",
+      });
     }
 
     // Grouplar massiviga yangi grouplarni qo'shish
     const updatedTutor = await tutorModel.findByIdAndUpdate(
       tutorId,
-      { $push: { group: { $each: groups } } },
+      { $push: { group: { $each: newGroups } } },
       { new: true }
     );
 
+    // TutorNotification yaratish
+    const groupNames = newGroups.map((g) => g.name).join(", ");
+    await tutorNotificationModel.create({
+      tutorId,
+      message: `Siz ${groupNames} guruh${
+        newGroups.length > 1 ? "lari" : "i"
+      }ga tutor qilib qo'shildingiz`,
+      isRead: false,
+    });
+
     res.status(200).json({
       status: "success",
-      message: "Guruhlar qo'shildi",
+      message: `${newGroups.length} ta guruh qo'shildi`,
       tutor: updatedTutor,
     });
   } catch (error) {
@@ -580,6 +608,59 @@ router.put(
     }
   }
 );
+router.put(
+  "/tutor/profile/:userId",
+  authMiddleware,
+  uploadSingleImage,
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const findTutor = await tutorModel.findById(userId);
+      if (!findTutor) {
+        return res
+          .status(400)
+          .json({ status: "error", message: "Bunday tutor topilmadi" });
+      }
+
+      const updateFields = {};
+      const { login, name, phone, group } = req.body;
+      if (login) updateFields.login = login;
+      if (name) updateFields.name = name;
+      if (phone) updateFields.phone = phone;
+      if (group) updateFields.group = JSON.parse(group);
+
+      // Fayl yuklangan bo'lsa, uni saqlaymiz
+      if (req.file) {
+        // Eski rasmni o'chirish
+        if (findTutor.image && !findTutor.image.includes("default-icon")) {
+          const oldImagePath = path.join(
+            __dirname,
+            "../public/images",
+            findTutor.image.split("/public/images/")[1]
+          );
+          if (fs.existsSync(oldImagePath)) {
+            fs.unlinkSync(oldImagePath);
+          }
+        }
+        updateFields.image = `/public/images/${req.file.filename}`;
+      }
+
+      const updatedTutor = await tutorModel.findByIdAndUpdate(
+        userId,
+        { $set: updateFields },
+        { new: true }
+      );
+
+      res.status(200).json({
+        status: "success",
+        message: "Tutor yangilandi",
+        tutor: updatedTutor,
+      });
+    } catch (error) {
+      res.status(500).json({ status: "error", message: error.message });
+    }
+  }
+);
 
 router.post(
   "/tutor/delete-group/:tutorId",
@@ -599,7 +680,7 @@ router.post(
       if (!findGroup) {
         return res.status(401).json({
           status: "error",
-          message: `Bu tutorda "${group} nomli guruh mavjud emas"`,
+          message: `Bu tutorda "${groupName}" nomli guruh mavjud emas`,
         });
       }
       const deletedGroup = group.filter((c) => c.name !== groupName);
@@ -613,13 +694,21 @@ router.post(
         },
         { new: true }
       );
+
       if (!editedTutor) {
         return res.status(500).json({
           status: "error",
           message: "Tutor malumotlarini ozgartirishda xatolik ketdi",
-          data: editedTutor,
         });
       }
+
+      // TutorNotification yaratish
+      await tutorNotificationModel.create({
+        tutorId: req.params.tutorId,
+        message: `Siz endi ${groupName} guruhining tutori emassiz`,
+        isRead: false,
+      });
+
       res.status(200).json({
         status: "success",
         message: "Tutor malumotlari muaffaqiyatli ozgartirildi",
@@ -637,12 +726,12 @@ router.delete("/tutor/delete/:id", authMiddleware, async (req, res) => {
     if (!findTutor) {
       return res
         .status(401)
-        .json({ status: "error", message: "Bunday turor topilmadi" });
+        .json({ status: "error", message: "Bunday tutor topilmadi" });
     }
     await tutorModel.findByIdAndDelete(id);
     res
       .status(200)
-      .json({ status: "success", message: "tutorMuaffaqiyatli ochirildi" });
+      .json({ status: "success", message: "Tutor muaffaqiyatli ochirildi" });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
   }

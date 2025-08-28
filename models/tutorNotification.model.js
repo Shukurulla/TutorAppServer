@@ -3,7 +3,8 @@ import mongoose from "mongoose";
 const tutorNotificationSchema = new mongoose.Schema(
   {
     tutorId: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tutor",
       required: true,
     },
     message: {
@@ -14,10 +15,24 @@ const tutorNotificationSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    type: {
+      type: String,
+      enum: ["group_added", "group_removed", "system", "announcement"],
+      default: "system",
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-export default mongoose.model("tutorNotification", tutorNotificationSchema);
+const tutorNotificationModel = mongoose.model(
+  "TutorNotification",
+  tutorNotificationSchema
+);
+
+export default tutorNotificationModel;
