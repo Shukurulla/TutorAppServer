@@ -52,13 +52,19 @@ const fileFilter = (req, file, cb) => {
 // Upload middleware-lari
 export const uploadSingleImage = multer({
   storage: imageStorage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB ga oshirish
+    files: 1,
+  },
   fileFilter: fileFilter,
 }).single("image");
 
 export const uploadMultipleImages = multer({
   storage: imageStorage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB ga oshirish
+    files: 4, // maksimal 4 ta fayl
+  },
   fileFilter: fileFilter,
 }).fields([
   { name: "boilerImage", maxCount: 1 },
@@ -69,13 +75,15 @@ export const uploadMultipleImages = multer({
 
 export const uploadAdsImages = multer({
   storage: adsStorage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB ga oshirish
+    files: 2,
+  },
   fileFilter: fileFilter,
 }).fields([
   { name: "image", maxCount: 1 },
   { name: "icon", maxCount: 1 },
 ]);
-
 // Default export
 const upload = multer({
   storage: imageStorage,

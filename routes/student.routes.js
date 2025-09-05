@@ -19,308 +19,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Student ma'lumotlarini tozalash va formatlash funksiyasi
-const cleanStudentData = (studentData) => {
-  try {
-    console.log(
-      "🧹 Cleaning student data for:",
-      studentData?.student_id_number
-    );
-
-    if (!studentData) {
-      throw new Error("Student data is null or undefined");
-    }
-
-    // Ma'lumotlarni tozalash va to'g'ri format berish
-    const cleanedData = {
-      // Asosiy ma'lumotlar
-      id: studentData.id
-        ? isNaN(studentData.id)
-          ? studentData.id
-          : parseInt(studentData.id)
-        : null,
-      university: studentData.university || {},
-      full_name: studentData.full_name || "",
-      short_name: studentData.short_name || "",
-      first_name: studentData.first_name || "",
-      second_name: studentData.second_name || "",
-      third_name: studentData.third_name || "",
-
-      // Gender ma'lumotlari
-      gender: studentData.gender
-        ? {
-            code: studentData.gender.code || "",
-            name: studentData.gender.name || "",
-          }
-        : { code: "", name: "" },
-
-      // Sana va raqamli ma'lumotlar
-      birth_date: studentData.birth_date
-        ? typeof studentData.birth_date === "number"
-          ? studentData.birth_date
-          : parseInt(studentData.birth_date) || null
-        : null,
-      student_id_number: studentData.student_id_number || "",
-      image: studentData.image || "",
-      avg_gpa: studentData.avg_gpa
-        ? parseFloat(studentData.avg_gpa) || null
-        : null,
-      avg_grade: studentData.avg_grade
-        ? parseFloat(studentData.avg_grade) || null
-        : null,
-      total_credit: studentData.total_credit
-        ? parseInt(studentData.total_credit) || null
-        : null,
-
-      // Joylashuv ma'lumotlari
-      country: studentData.country
-        ? {
-            code: studentData.country.code || "",
-            name: studentData.country.name || "",
-          }
-        : { code: "", name: "" },
-
-      province: studentData.province
-        ? {
-            code: studentData.province.code || "",
-            name: studentData.province.name || "",
-            _parent: studentData.province._parent || "",
-          }
-        : { code: "", name: "", _parent: "" },
-
-      currentProvince: studentData.currentProvince
-        ? {
-            code: studentData.currentProvince.code || "",
-            name: studentData.currentProvince.name || "",
-            _parent: studentData.currentProvince._parent || "",
-          }
-        : { code: "", name: "", _parent: "" },
-
-      district: studentData.district
-        ? {
-            code: studentData.district.code || "",
-            name: studentData.district.name || "",
-            _parent: studentData.district._parent || "",
-          }
-        : { code: "", name: "", _parent: "" },
-
-      currentDistrict: studentData.currentDistrict
-        ? {
-            code: studentData.currentDistrict.code || "",
-            name: studentData.currentDistrict.name || "",
-            _parent: studentData.currentDistrict._parent || "",
-          }
-        : { code: "", name: "", _parent: "" },
-
-      terrain: studentData.terrain
-        ? {
-            code: studentData.terrain.code || "",
-            name: studentData.terrain.name || "",
-          }
-        : { code: "", name: "" },
-
-      currentTerrain: studentData.currentTerrain
-        ? {
-            code: studentData.currentTerrain.code || "",
-            name: studentData.currentTerrain.name || "",
-          }
-        : { code: "", name: "" },
-
-      citizenship: studentData.citizenship
-        ? {
-            code: studentData.citizenship.code || "",
-            name: studentData.citizenship.name || "",
-          }
-        : { code: "", name: "" },
-
-      // Student status va kategoriyalar
-      studentStatus: studentData.studentStatus
-        ? {
-            code: studentData.studentStatus.code || "",
-            name: studentData.studentStatus.name || "",
-          }
-        : { code: "", name: "" },
-
-      _curriculum: studentData._curriculum
-        ? typeof studentData._curriculum === "number"
-          ? studentData._curriculum
-          : parseInt(studentData._curriculum) || null
-        : null,
-
-      educationForm: studentData.educationForm
-        ? {
-            code: studentData.educationForm.code || "",
-            name: studentData.educationForm.name || "",
-          }
-        : { code: "", name: "" },
-
-      educationType: studentData.educationType
-        ? {
-            code: studentData.educationType.code || "",
-            name: studentData.educationType.name || "",
-          }
-        : { code: "", name: "" },
-
-      paymentForm: studentData.paymentForm
-        ? {
-            code: studentData.paymentForm.code || "",
-            name: studentData.paymentForm.name || "",
-          }
-        : { code: "", name: "" },
-
-      studentType: studentData.studentType
-        ? {
-            code: studentData.studentType.code || "",
-            name: studentData.studentType.name || "",
-          }
-        : { code: "", name: "" },
-
-      socialCategory: studentData.socialCategory
-        ? {
-            code: studentData.socialCategory.code || "",
-            name: studentData.socialCategory.name || "",
-          }
-        : { code: "", name: "" },
-
-      accommodation: studentData.accommodation
-        ? {
-            code: studentData.accommodation.code || "",
-            name: studentData.accommodation.name || "",
-          }
-        : { code: "", name: "" },
-
-      // Department ma'lumotlari (Mixed type)
-      department: studentData.department
-        ? {
-            id: studentData.department.id, // Mixed type - string yoki number bo'lishi mumkin
-            name: studentData.department.name || "",
-            code: studentData.department.code || "",
-            structureType: studentData.department.structureType
-              ? {
-                  code: studentData.department.structureType.code || "",
-                  name: studentData.department.structureType.name || "",
-                }
-              : { code: "", name: "" },
-            localityType: studentData.department.localityType
-              ? {
-                  code: studentData.department.localityType.code || "",
-                  name: studentData.department.localityType.name || "",
-                }
-              : { code: "", name: "" },
-            parent: studentData.department.parent || null,
-            active: Boolean(studentData.department.active),
-          }
-        : {
-            id: null,
-            name: "",
-            code: "",
-            structureType: { code: "", name: "" },
-            localityType: { code: "", name: "" },
-            parent: null,
-            active: false,
-          },
-
-      // Specialty ma'lumotlari (Mixed type)
-      specialty: studentData.specialty
-        ? {
-            id: studentData.specialty.id, // Mixed type - string yoki number bo'lishi mumkin
-            code: studentData.specialty.code || "",
-            name: studentData.specialty.name || "",
-          }
-        : {
-            id: null,
-            code: "",
-            name: "",
-          },
-
-      // Group ma'lumotlari (Mixed type)
-      group: studentData.group
-        ? {
-            id: studentData.group.id, // Mixed type - string yoki number bo'lishi mumkin
-            name: studentData.group.name || "",
-            educationLang: studentData.group.educationLang
-              ? {
-                  code: studentData.group.educationLang.code || "",
-                  name: studentData.group.educationLang.name || "",
-                }
-              : { code: "", name: "" },
-          }
-        : {
-            id: null,
-            name: "",
-            educationLang: { code: "", name: "" },
-          },
-
-      // Level ma'lumotlari
-      level: studentData.level
-        ? {
-            code: studentData.level.code || "",
-            name: studentData.level.name || "",
-          }
-        : { code: "", name: "" },
-
-      // Semester ma'lumotlari (Mixed type)
-      semester: studentData.semester
-        ? {
-            id: studentData.semester.id, // Mixed type - string yoki number bo'lishi mumkin
-            code: studentData.semester.code || "",
-            name: studentData.semester.name || "",
-          }
-        : {
-            id: null,
-            code: "",
-            name: "",
-          },
-
-      // Education year
-      educationYear: studentData.educationYear
-        ? {
-            code: studentData.educationYear.code || "",
-            name: studentData.educationYear.name || "",
-            current: Boolean(studentData.educationYear.current),
-          }
-        : { code: "", name: "", current: false },
-
-      // Qolgan ma'lumotlar
-      year_of_enter: studentData.year_of_enter
-        ? typeof studentData.year_of_enter === "number"
-          ? studentData.year_of_enter
-          : parseInt(studentData.year_of_enter) || null
-        : null,
-      roommate_count: studentData.roommate_count || null,
-      is_graduate: Boolean(studentData.is_graduate),
-      total_acload: studentData.total_acload || null,
-      other: studentData.other || "",
-
-      // Vaqt belgilari
-      created_at: studentData.created_at
-        ? typeof studentData.created_at === "number"
-          ? studentData.created_at
-          : parseInt(studentData.created_at) || Date.now()
-        : Date.now(),
-      updated_at: studentData.updated_at
-        ? typeof studentData.updated_at === "number"
-          ? studentData.updated_at
-          : parseInt(studentData.updated_at) || Date.now()
-        : Date.now(),
-
-      // Hash va validation
-      hash: studentData.hash || "",
-      validateUrl: studentData.validateUrl || "",
-    };
-
-    console.log("✅ Student data cleaned successfully");
-    return cleanedData;
-  } catch (error) {
-    console.error("❌ Error cleaning student data:", error);
-    throw new Error(`Student data cleaning failed: ${error.message}`);
-  }
-};
-
-// Student login endpoint
 router.post("/student/sign", async (req, res) => {
   const { login, password } = req.body;
-
-  console.log("🔐 Student sign attempt:", { login });
 
   if (!login || !password) {
     return res.status(400).json({
@@ -331,75 +31,56 @@ router.post("/student/sign", async (req, res) => {
 
   let tokenData;
   try {
-    console.log("📡 Calling HEMIS API for authentication...");
     const { data } = await axios.post(
       `${process.env.HEMIS_API_URL}/auth/login`,
       { login, password },
       {
-        timeout: 10000, // 10 sekund timeout
-        headers: {
-          "Content-Type": "application/json",
-        },
+        timeout: 10000,
+        headers: { "Content-Type": "application/json" },
       }
     );
     tokenData = data;
-    console.log("✅ HEMIS authentication successful");
   } catch (err) {
-    console.log("❌ HEMIS API failed:", err.message);
-    console.log("🔍 Checking local database for student...");
+    // HEMIS ishlamasa — local bazadan tekshirish
+    const findMockStudent = await StudentModel.findOne({
+      student_id_number: login,
+    }).lean();
 
-    try {
-      const findMockStudent = await StudentModel.findOne({
-        student_id_number: login,
-      }).lean();
-
-      if (!findMockStudent) {
-        return res.status(401).json({
-          status: "error",
-          message:
-            "Login ma'lumotlari noto'g'ri, va bunday student bazada topilmadi",
-        });
-      }
-
-      const token = generateToken(findMockStudent._id);
-      const existAppartment = await AppartmentModel.findOne({
-        studentId: findMockStudent._id,
-      });
-
-      console.log("✅ Local student found and authenticated");
-      return res.status(200).json({
-        status: "success",
-        student: {
-          ...findMockStudent,
-          existAppartment: !!existAppartment,
-        },
-        token,
-      });
-    } catch (dbError) {
-      console.error("❌ Database error:", dbError);
-      return res.status(500).json({
+    if (!findMockStudent) {
+      return res.status(401).json({
         status: "error",
-        message: "Bazada ma'lumotlarni tekshirishda xatolik",
+        message:
+          "Login ma'lumotlari noto'g'ri, va bunday student bazada topilmadi",
       });
     }
+
+    const token = generateToken(findMockStudent._id);
+    const existAppartment = await AppartmentModel.findOne({
+      studentId: findMockStudent._id,
+    });
+
+    return res.status(200).json({
+      status: "success",
+      student: {
+        ...findMockStudent,
+        existAppartment: !!existAppartment,
+      },
+      hemisData: null, // HEMIS ulanmagan paytda yo‘q bo‘ladi
+      token,
+    });
   }
 
   let account;
   try {
-    console.log("👤 Getting user account data from HEMIS...");
     const response = await axios.get(
       `${process.env.HEMIS_API_URL}/account/me`,
       {
-        headers: {
-          Authorization: `Bearer ${tokenData.data.token}`,
-        },
-        timeout: 10000, // 10 sekund timeout
+        headers: { Authorization: `Bearer ${tokenData.data.token}` },
+        timeout: 10000,
       }
     );
     account = response.data;
-    console.log("✅ Account data received from HEMIS");
   } catch (err) {
-    console.error("❌ Account data fetch failed:", err.message);
     return res.status(500).json({
       status: "error",
       message: "HEMIS tizimidan ma'lumot olishda xatolik yuz berdi",
@@ -414,101 +95,41 @@ router.post("/student/sign", async (req, res) => {
   }
 
   try {
-    // Student bazada mavjudligini tekshirish
     const findStudent = await StudentModel.findOne({
       student_id_number: account.data.student_id_number,
-    }).lean();
-
-    if (!findStudent) {
-      console.log("🆕 Creating new student in database...");
-
-      // Yangi student yaratish
-      const cleanedStudentData = cleanStudentData(account.data);
-      const student = await StudentModel.create(cleanedStudentData);
-
-      const token = generateToken(student._id);
-      const existAppartment = await AppartmentModel.findOne({
-        studentId: student._id,
-      });
-
-      console.log(
-        "✅ New student created successfully:",
-        student.student_id_number
-      );
-      return res.status(200).json({
-        status: "success",
-        message: "Student muvaffaqiyatli ro'yxatdan o'tdi",
-        student: {
-          ...student.toObject(),
-          existAppartment: !!existAppartment,
-        },
-        token,
-      });
-    }
-
-    console.log("🔄 Updating existing student data...");
-
-    // Mavjud studentni yangilash
-    const cleanedUpdateData = cleanStudentData(account.data);
-    const updateStudent = await StudentModel.findByIdAndUpdate(
-      findStudent._id,
-      { $set: cleanedUpdateData },
-      {
-        new: true,
-        runValidators: false, // Validation ni o'chirish chunki Mixed type ishlatilmoqda
-        lean: false,
-      }
-    );
-
-    if (!updateStudent) {
-      throw new Error("Student yangilanmadi");
-    }
-
-    const token = generateToken(updateStudent._id);
-    const existAppartment = await AppartmentModel.findOne({
-      studentId: updateStudent._id,
     });
 
-    console.log(
-      "✅ Student updated successfully:",
-      updateStudent.student_id_number
-    );
+    let finalStudent;
+    if (!findStudent) {
+      // Yangi student saqlaymiz
+      finalStudent = await StudentModel.create(account.data);
+    } else {
+      // Yangilash
+      finalStudent = await StudentModel.findByIdAndUpdate(
+        findStudent._id,
+        { $set: account.data },
+        { new: true, runValidators: false }
+      );
+    }
+
+    const token = generateToken(finalStudent._id);
+    const existAppartment = await AppartmentModel.findOne({
+      studentId: finalStudent._id,
+    });
+
     return res.status(200).json({
       status: "success",
-      message: "Student ma'lumotlari yangilandi",
+      message: findStudent
+        ? "Student ma'lumotlari yangilandi"
+        : "Student muvaffaqiyatli ro'yxatdan o'tdi",
       student: {
-        ...updateStudent.toObject(),
+        ...finalStudent.toObject(),
         existAppartment: !!existAppartment,
       },
+      hemisData: account.data, // 🔑 qo‘shildi
       token,
     });
   } catch (error) {
-    console.error("❌ Database operation failed:", error);
-
-    // Xatolik turini aniqlash
-    if (error.name === "ValidationError") {
-      console.error("Validation errors details:", error.errors);
-      return res.status(400).json({
-        status: "error",
-        message: "Ma'lumotlar formati noto'g'ri",
-        details: Object.keys(error.errors).map((key) => ({
-          field: key,
-          message: error.errors[key].message,
-          value: error.errors[key].value,
-        })),
-      });
-    }
-
-    if (error.name === "CastError") {
-      console.error("Cast error details:", error);
-      return res.status(400).json({
-        status: "error",
-        message: "Ma'lumot turi noto'g'ri",
-        field: error.path,
-        value: error.value,
-      });
-    }
-
     return res.status(500).json({
       status: "error",
       message: "Bazada ma'lumotlarni saqlashda xatolik",
