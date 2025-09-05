@@ -84,7 +84,7 @@ const studentSchema = new mongoose.Schema({
     name: String,
   },
   department: {
-    id: Number,
+    id: mongoose.Schema.Types.Mixed, // Number yoki String bo'lishi mumkin
     name: String,
     code: String,
     structureType: {
@@ -102,12 +102,12 @@ const studentSchema = new mongoose.Schema({
     active: Boolean,
   },
   specialty: {
-    id: Number,
+    id: mongoose.Schema.Types.Mixed, // Bu yerda Mixed type ishlatamiz
     code: String,
     name: String,
   },
   group: {
-    id: Number,
+    id: mongoose.Schema.Types.Mixed, // Bu ham Mixed type
     name: String,
     educationLang: {
       code: String,
@@ -119,7 +119,7 @@ const studentSchema = new mongoose.Schema({
     name: String,
   },
   semester: {
-    id: Number,
+    id: mongoose.Schema.Types.Mixed, // Bu ham Mixed type
     code: String,
     name: String,
   },

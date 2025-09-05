@@ -1,5 +1,5 @@
 import axios from "axios";
-import StudentModel from "../models/student.model";
+import StudentModel from "../models/student.model.js";
 // Delay funksiyasi (timeout uchun)
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -7,15 +7,13 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function fetchAllStudents() {
   try {
-    const pageSize = 20;
     const token = "Bearer erkFR_9u2IOFoaGxYQPDmjmXVe6Oqv3s";
 
     // Avval 1-betni olib, umumiy sahifalar sonini bilib olamiz
     const firstResponse = await axios.get(
-      "https://student.karsu.uz/rest/v1/data/student-list",
+      "https://student.karsu.uz/rest/v1/data/student-list?limit=200",
       {
         headers: { Authorization: token },
-        params: { page: 1, pageSize },
       }
     );
 
@@ -36,7 +34,6 @@ export async function fetchAllStudents() {
           "https://student.karsu.uz/rest/v1/data/student-list?limit=200",
           {
             headers: { Authorization: token },
-            params: { page, pageSize },
           }
         );
 

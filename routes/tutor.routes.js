@@ -252,6 +252,17 @@ router.post("/tutor/login", async (req, res) => {
   }
 });
 
+router.get("/all-students", async (req, res) => {
+  try {
+    const students = await StudentModel.find().select("group ").lean();
+    console.log("📌 students:", students);
+    return res.status(200).json({ data: students });
+  } catch (error) {
+    console.error("❌ error:", error);
+    return res.status(500).json({ message: error.message });
+  }
+});
+
 router.get("/tutor/my-students", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
@@ -265,22 +276,25 @@ router.get("/tutor/my-students", authMiddleware, async (req, res) => {
     }
 
     // Tutor guruhlarini olish
-    const groupNames = findTutor.group.map((g) => g.name);
+    const groupNames = findTutor.group.map((g) => g.code);
 
     // Faqat kerakli guruhlarga tegishli studentlarni olish
     const findStudents = await StudentModel.find({
-      "group.name": { $in: groupNames },
+      "group.id": { $in: groupNames },
     }).select(
-      "group.name student_id_number accommodation faculty.name first_name second_name third_name full_name short_name university image address role"
+      "group.name group.id student_id_number accommodation faculty.name first_name second_name third_name full_name short_name university image address role"
     );
-
     // Guruhlar bo'yicha studentlarni ajratish
     const groupStudents = groupNames.map((groupName) => ({
       group: groupName,
-      students: findStudents.filter((s) => s.group.name === groupName),
+      students: findStudents.filter((s) => s.group.id === groupName),
     }));
 
-    res.status(200).json({ status: "success", data: groupStudents });
+    res.status(200).json({
+      status: "success",
+      data: groupStudents,
+      findStudents: findStudents,
+    });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
   }
@@ -300,12 +314,10 @@ router.post("/tutor/add-group/:tutorId", authMiddleware, async (req, res) => {
     }
 
     if (!Array.isArray(groups) || groups.length === 0) {
-      return res
-        .status(400)
-        .json({
-          status: "error",
-          message: "Groups massivda bo'lishi kerak va bo'sh bo'lmasligi kerak",
-        });
+      return res.status(400).json({
+        status: "error",
+        message: "Groups massivda bo'lishi kerak va bo'sh bo'lmasligi kerak",
+      });
     }
 
     // Yangi guruhlarni qo'shish (duplikatlarni tekshirish)

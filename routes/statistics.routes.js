@@ -52,31 +52,64 @@ router.get("/statistics/students/gender", authMiddleware, async (req, res) => {
 
 router.get("/statistics/appartments/map", authMiddleware, async (req, res) => {
   try {
-    const { userId } = req.userData;
-    isAdmin(userId, res);
+    console.log("Map endpoint called - fetching all apartments");
 
-    // Eng oxirgi appartmentlarni olish
-    const allStudents = await StudentModel.find().select("_id");
-    const latestAppartments = [];
+    // Barcha appartmentlarni olish (Being checked bo'lmaganlarini)
+    const allAppartments = await AppartmentModel.find({
+      status: { $ne: "Being checked" },
+      location: { $exists: true },
+      "location.lat": { $exists: true, $ne: null, $ne: "" },
+      "location.long": { $exists: true, $ne: null, $ne: "" },
+    })
+      .select("location status _id studentId createdAt")
+      .sort({ createdAt: -1 });
 
-    for (const student of allStudents) {
-      const latestAppartment = await AppartmentModel.findOne({
-        studentId: student._id,
-      })
-        .select("location status")
-        .sort({ createdAt: -1 });
+    console.log(`Found ${allAppartments.length} valid apartments`);
 
-      if (latestAppartment) {
-        latestAppartments.push(latestAppartment);
+    // Har bir student uchun eng oxirgi appartmentni olish
+    const studentMap = new Map();
+
+    for (const apartment of allAppartments) {
+      const studentId = apartment.studentId.toString();
+
+      if (!studentMap.has(studentId)) {
+        studentMap.set(studentId, apartment);
+      } else {
+        // Agar oldingi apartment yangi bo'lsa, uni almashtirish
+        const existing = studentMap.get(studentId);
+        if (new Date(apartment.createdAt) > new Date(existing.createdAt)) {
+          studentMap.set(studentId, apartment);
+        }
       }
     }
 
+    const latestAppartments = Array.from(studentMap.values());
+    console.log(`Final apartments for map: ${latestAppartments.length}`);
+
+    // Ma'lumotlarni formatlash
+    const formattedData = latestAppartments.map((apt) => ({
+      _id: apt._id,
+      studentId: apt.studentId,
+      status: apt.status,
+      location: {
+        lat: apt.location.lat,
+        long: apt.location.long,
+      },
+    }));
+
     res.status(200).json({
       status: "success",
-      data: latestAppartments.filter((c) => c.status !== "Being checked"),
+      data: formattedData,
+      total: formattedData.length,
+      message: `${formattedData.length} ta apartment topildi`,
     });
   } catch (error) {
-    res.status(500).json({ status: "error", message: error.message });
+    console.error("Map endpoint error:", error);
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+    });
   }
 });
 

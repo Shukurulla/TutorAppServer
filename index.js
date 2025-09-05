@@ -20,6 +20,7 @@ import tutorModel from "./models/tutor.model.js";
 import chatModel from "./models/chat.model.js";
 import StudentModel from "./models/student.model.js";
 import axios from "axios";
+import { fetchAllStudents } from "./utils/refreshData.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -50,8 +51,8 @@ app.use(
 );
 
 // Body parser middleware
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use(express.json({ limit: "1000mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1000mb" }));
 
 // Static files
 app.use("/public", express.static(path.join(__dirname, "public")));
