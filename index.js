@@ -51,8 +51,8 @@ app.use(
 );
 
 // Body parser middleware
-app.use(express.json({ limit: "1000mb" }));
-app.use(express.urlencoded({ extended: true, limit: "1000mb" }));
+app.use(express.json({ limit: "100mb" }));
+app.use(express.urlencoded({ extended: true, limit: "100mb" }));
 
 // Static files
 app.use("/public", express.static(path.join(__dirname, "public")));
