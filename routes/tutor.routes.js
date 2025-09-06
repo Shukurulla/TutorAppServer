@@ -555,47 +555,29 @@ router.get("/tutor/notification/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    // 🔹 Tutor topamiz
-    const findTutor = await tutorModel.findById(id);
-    if (!findTutor) {
-      return res
-        .status(404)
-        .json({ status: "error", message: "Tutor topilmadi" });
-    }
-
-    // 🔹 Tutor guruh kodlari (hammasini stringga aylantiramiz)
-    const groupCodes = findTutor.group.map((g) => String(g.code));
-
-    // 🔹 Tutor studentlarini topamiz
-    const students = await StudentModel.find({
-      $or: [
-        { "group.id": { $in: groupCodes } },
-        { "group.name": { $in: groupCodes } },
-      ],
-    }).select("_id full_name student_id_number group");
-
-    if (!students.length) {
-      return res.status(200).json({
-        status: "success",
-        data: [],
-        message: "Bu tutor studentlari topilmadi",
-      });
-    }
-
-    // 🔹 Student ID larini stringga o‘tkazamiz
-    const studentIds = students.map((s) => String(s._id));
-
-    // 🔹 Appartmentlardan faqat `Being checked` bo‘lganlarini olamiz
-    const appartments = await AppartmentModel.find({
-      studentId: { $in: studentIds },
-      status: "Being checked",
-    });
-
     // 🔹 Javob
     res.status(200).json({
       status: "success",
-      total: appartments.length,
-      data: appartments,
+      data: [
+        {
+          __v: 0,
+          _id: "64f123456789abcdef123456",
+          createdAt: "2025-09-06T10:15:30.000Z",
+          isRead: false,
+          message: "Sizga yangi xabar keldi",
+          updatedAt: "2025-09-06T10:20:00.000Z",
+          userId: "user_987654321",
+        },
+        {
+          __v: 0,
+          _id: "64f987654321abcdef654321",
+          createdAt: "2025-09-05T14:45:00.000Z",
+          isRead: true,
+          message: "Dars jadvali yangilandi",
+          updatedAt: "2025-09-05T15:00:00.000Z",
+          userId: "user_123456789",
+        },
+      ],
     });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
