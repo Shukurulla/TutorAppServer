@@ -137,23 +137,35 @@ router.get(
   async (req, res) => {
     try {
       const { userId } = req.userData;
-      isAdmin(userId, res);
+      await isAdmin(userId, res);
 
-      // Eng oxirgi appartmentlarni olish
-      const allStudents = await StudentModel.find().select("_id");
-      const latestAppartments = [];
-
-      for (const student of allStudents) {
-        const latestAppartment = await AppartmentModel.findOne({
-          studentId: student._id,
-        })
-          .select("status typeOfBoiler")
-          .sort({ createdAt: -1 });
-
-        if (latestAppartment) {
-          latestAppartments.push(latestAppartment);
-        }
-      }
+      // Aggregation pipeline yordamida optimizatsiya
+      const boilerStats = await AppartmentModel.aggregate([
+        // Faqat "Being checked" bo'lmagan appartmentlarni olish
+        {
+          $match: {
+            status: { $ne: "Being checked" },
+            typeOfBoiler: { $exists: true, $ne: null },
+          },
+        },
+        // Har bir student uchun eng oxirgi appartmentni olish
+        {
+          $sort: { studentId: 1, createdAt: -1 },
+        },
+        {
+          $group: {
+            _id: "$studentId",
+            latestAppartment: { $first: "$$ROOT" },
+          },
+        },
+        // typeOfBoiler bo'yicha guruhlash
+        {
+          $group: {
+            _id: "$latestAppartment.typeOfBoiler",
+            count: { $sum: 1 },
+          },
+        },
+      ]);
 
       const boilerTypes = [
         "Ariston kotyol",
@@ -164,19 +176,25 @@ router.get(
         "Isitish uskunasi yo'q",
       ];
 
-      const filteredAppartments = boilerTypes.map((item) => {
+      // Natijalarni formatlash
+      const result = boilerTypes.map((boilerType) => {
+        const found = boilerStats.find((stat) => stat._id === boilerType);
         return {
-          title: item,
-          total: latestAppartments
-            .filter((c) => c.status != "Being checked")
-            .filter((c) => c.typeOfBoiler == item).length,
+          title: boilerType,
+          total: found ? found.count : 0,
         };
       });
+
+      // Debug uchun log
+      console.log("Boiler statistics:", result);
+      console.log("Raw aggregation result:", boilerStats);
+
       res.json({
         status: "success",
-        data: filteredAppartments,
+        data: result,
       });
     } catch (error) {
+      console.error("Boiler statistics error:", error);
       res.status(500).json({ status: "error", message: error.message });
     }
   }
@@ -188,23 +206,42 @@ router.get(
   async (req, res) => {
     try {
       const { userId } = req.userData;
-      isAdmin(userId, res);
+      await isAdmin(userId, res);
 
-      // Eng oxirgi appartmentlarni olish
-      const allStudents = await StudentModel.find().select("_id");
-      const latestAppartments = [];
-
-      for (const student of allStudents) {
-        const latestAppartment = await AppartmentModel.findOne({
-          studentId: student._id,
-        })
-          .select("status smallDistrict")
-          .sort({ createdAt: -1 });
-
-        if (latestAppartment) {
-          latestAppartments.push(latestAppartment);
-        }
-      }
+      // Aggregation pipeline yordamida optimizatsiya
+      const districtStats = await AppartmentModel.aggregate([
+        // Faqat "Being checked" bo'lmagan appartmentlarni olish
+        {
+          $match: {
+            status: { $ne: "Being checked" },
+            smallDistrict: { $exists: true, $ne: null, $ne: "" },
+          },
+        },
+        // Har bir student uchun eng oxirgi appartmentni olish
+        {
+          $sort: { studentId: 1, createdAt: -1 },
+        },
+        {
+          $group: {
+            _id: "$studentId",
+            latestAppartment: { $first: "$$ROOT" },
+          },
+        },
+        // smallDistrict bo'yicha guruhlash (trim qilish uchun)
+        {
+          $addFields: {
+            trimmedDistrict: {
+              $trim: { input: "$latestAppartment.smallDistrict" },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: "$trimmedDistrict",
+            count: { $sum: 1 },
+          },
+        },
+      ]);
 
       const smallDistricts = [
         "20 - kichik tuman",
@@ -218,19 +255,25 @@ router.get(
         "28 - kichik tuman",
       ];
 
-      const filteredAppartments = smallDistricts.map((item) => {
+      // Natijalarni formatlash
+      const result = smallDistricts.map((district) => {
+        const found = districtStats.find((stat) => stat._id === district);
         return {
-          title: item,
-          total: latestAppartments
-            .filter((c) => c.status != "Being checked")
-            .filter((c) => c.smallDistrict.trim() == item.trim()).length,
+          title: district,
+          total: found ? found.count : 0,
         };
       });
+
+      // Debug uchun log
+      console.log("SmallDistrict statistics:", result);
+      console.log("Raw aggregation result:", districtStats);
+
       res.json({
         status: "success",
-        data: filteredAppartments,
+        data: result,
       });
     } catch (error) {
+      console.error("SmallDistrict statistics error:", error);
       res.status(500).json({ status: "error", message: error.message });
     }
   }
