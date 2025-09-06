@@ -79,13 +79,13 @@ mongoose
     console.log("🔄 Starting automatic student data refresh...");
 
     // Background da ishga tushirish (server start bo'lishini to'xtatmaydi)
-    setTimeout(async () => {
-      try {
-        await autoRefreshStudentData();
-      } catch (error) {
-        console.error("❌ Auto refresh error:", error.message);
-      }
-    }, 2000); // 2 sekund kutib ishga tushirish
+    // setTimeout(async () => {
+    //   try {
+    //     await autoRefreshStudentData();
+    //   } catch (error) {
+    //     console.error("❌ Auto refresh error:", error.message);
+    //   }
+    // }, 2000); // 2 sekund kutib ishga tushirish
   })
   .catch((error) => {
     console.error("❌ Database connection error:", error);
