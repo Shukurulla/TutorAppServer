@@ -267,7 +267,7 @@ router.get("/tutor/my-students", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
 
-    // Tutorni topish
+    // 🔹 Tutorni topish
     const findTutor = await tutorModel.findById(userId);
     if (!findTutor) {
       return res
@@ -275,25 +275,34 @@ router.get("/tutor/my-students", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "Bunday tutor topilmadi" });
     }
 
-    // Tutor guruhlarini olish
-    const groupNames = findTutor.group.map((g) => g.code);
+    // 🔹 Tutor guruh kodlarini olish (hammasini stringga o‘tkazamiz)
+    const groupCodes = findTutor.group.map((g) => String(g.code));
 
-    // Faqat kerakli guruhlarga tegishli studentlarni olish
+    // 🔹 Studentlarni olish (group.id va group.name ni string qilib solishtiramiz)
     const findStudents = await StudentModel.find({
-      "group.id": { $in: groupNames },
+      $or: [
+        { "group.id": { $in: groupCodes } },
+        { "group.name": { $in: groupCodes } },
+      ],
     }).select(
       "group.name group.id student_id_number accommodation faculty.name first_name second_name third_name full_name short_name university image address role"
     );
-    // Guruhlar bo'yicha studentlarni ajratish
-    const groupStudents = groupNames.map((groupName) => ({
-      group: groupName,
-      students: findStudents.filter((s) => s.group.id === groupName),
+
+    // 🔹 Guruhlar bo‘yicha studentlarni ajratib chiqish
+    const groupStudents = groupCodes.map((groupCode) => ({
+      group: groupCode,
+      students: findStudents.filter(
+        (s) =>
+          String(s.group.id) === String(groupCode) ||
+          String(s.group.name) === String(groupCode)
+      ),
     }));
 
+    // 🔹 Javob qaytarish
     res.status(200).json({
       status: "success",
       data: groupStudents,
-      findStudents: findStudents,
+      findStudents,
     });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
@@ -427,39 +436,29 @@ router.get("/tutor/students-group/:group", authMiddleware, async (req, res) => {
     const pageNumber = Math.max(1, parseInt(page, 10) || 1);
     const limitNumber = Math.max(1, parseInt(limit, 10) || 20);
 
-    const totalCountWithName = await StudentModel.countDocuments({
-      "group.name": group,
-    });
-    const totalCountWithCode = await StudentModel.countDocuments({
-      "group.id": group,
-    });
+    // 🔹 Umumiy filter (name yoki id bo‘yicha qidiradi)
+    const filter = {
+      $or: [{ "group.name": group }, { "group.id": group }],
+    };
 
-    const totalCount = totalCountWithName || totalCountWithCode;
-
+    // 🔹 Studentlar soni
+    const totalCount = await StudentModel.countDocuments(filter);
     const totalPages = Math.ceil(totalCount / limitNumber);
 
+    // 🔹 Appartmentlarni olish
     const findAppartments = await AppartmentModel.find().select(
       "status studentId location"
     );
 
-    const findStudentsWithName = await StudentModel.find({
-      "group.name": group,
-    })
+    // 🔹 Studentlarni olish
+    const findStudents = await StudentModel.find(filter)
       .select(
-        "group.name province gender faculty.name first_name second_name third_name full_name short_name university image address role"
+        "group.id group.name province gender faculty.name first_name second_name third_name full_name short_name university image address role"
       )
       .skip((pageNumber - 1) * limitNumber)
       .limit(limitNumber);
 
-    const findStudentsWithCode = await StudentModel.find({ "group.id": group })
-      .select(
-        "group.id province gender faculty.name first_name second_name third_name full_name short_name university image address role"
-      )
-      .skip((pageNumber - 1) * limitNumber)
-      .limit(limitNumber);
-
-    const findStudents = findStudentsWithName || findStudentsWithCode;
-
+    // 🔹 Studentlarga status qo‘shish
     const studentsWithStatus = findStudents.map((student) => {
       const studentAppartment = findAppartments.find(
         (appartment) =>
@@ -478,6 +477,7 @@ router.get("/tutor/students-group/:group", authMiddleware, async (req, res) => {
       };
     });
 
+    // 🔹 Response
     res.json({
       status: "success",
       page: pageNumber,
@@ -551,6 +551,56 @@ router.get("/tutor/profile", authMiddleware, async (req, res) => {
   }
 });
 
+router.get("/tutor/notification/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 🔹 Tutor topamiz
+    const findTutor = await tutorModel.findById(id);
+    if (!findTutor) {
+      return res
+        .status(404)
+        .json({ status: "error", message: "Tutor topilmadi" });
+    }
+
+    // 🔹 Tutor guruh kodlari (hammasini stringga aylantiramiz)
+    const groupCodes = findTutor.group.map((g) => String(g.code));
+
+    // 🔹 Tutor studentlarini topamiz
+    const students = await StudentModel.find({
+      $or: [
+        { "group.id": { $in: groupCodes } },
+        { "group.name": { $in: groupCodes } },
+      ],
+    }).select("_id full_name student_id_number group");
+
+    if (!students.length) {
+      return res.status(200).json({
+        status: "success",
+        data: [],
+        message: "Bu tutor studentlari topilmadi",
+      });
+    }
+
+    // 🔹 Student ID larini stringga o‘tkazamiz
+    const studentIds = students.map((s) => String(s._id));
+
+    // 🔹 Appartmentlardan faqat `Being checked` bo‘lganlarini olamiz
+    const appartments = await AppartmentModel.find({
+      studentId: { $in: studentIds },
+      status: "Being checked",
+    });
+
+    // 🔹 Javob
+    res.status(200).json({
+      status: "success",
+      total: appartments.length,
+      data: appartments,
+    });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
 router.post("/tutor/notification", authMiddleware, async (req, res) => {
   try {
     const { userId, message } = req.body;

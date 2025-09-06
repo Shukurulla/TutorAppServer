@@ -20,7 +20,7 @@ import tutorModel from "./models/tutor.model.js";
 import chatModel from "./models/chat.model.js";
 import StudentModel from "./models/student.model.js";
 import axios from "axios";
-import { fetchAllStudents } from "./utils/refreshData.js";
+import { autoRefreshStudentData } from "./utils/refreshData.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -72,11 +72,23 @@ const mongo_url = process.env.MONGO_URI;
 
 mongoose
   .connect(mongo_url)
-  .then(() => {
-    console.log("database connected");
+  .then(async () => {
+    console.log("✅ Database connected successfully");
+
+    // 🚀 AVTOMATIK STUDENT MA'LUMOTLARINI YANGILASH
+    console.log("🔄 Starting automatic student data refresh...");
+
+    // Background da ishga tushirish (server start bo'lishini to'xtatmaydi)
+    setTimeout(async () => {
+      try {
+        await autoRefreshStudentData();
+      } catch (error) {
+        console.error("❌ Auto refresh error:", error.message);
+      }
+    }, 2000); // 2 sekund kutib ishga tushirish
   })
   .catch((error) => {
-    console.error("Database connection error:", error);
+    console.error("❌ Database connection error:", error);
   });
 
 // Socket handler

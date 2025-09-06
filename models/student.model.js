@@ -13,7 +13,7 @@ const studentSchema = new mongoose.Schema({
     name: String,
   },
   birth_date: Number,
-  student_id_number: String,
+  student_id_number: { type: String, unique: true },
   image: String,
   avg_gpa: Number,
   avg_grade: Number,
