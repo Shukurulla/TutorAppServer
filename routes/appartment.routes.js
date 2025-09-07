@@ -171,6 +171,9 @@ router.post("/appartment/check", authMiddleware, async (req, res) => {
         status: additionImageStatus,
       },
     });
+
+    await NotificationModel.deleteMany({ appartmentId, status: "blue" });
+
     const checkedAppartment = await AppartmentModel.findById(appartmentId);
     res.status(200).json({ status: "success", data: checkedAppartment });
   } catch (error) {
