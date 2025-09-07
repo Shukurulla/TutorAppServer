@@ -152,7 +152,6 @@ router.get("/student/existAppartment", authMiddleware, async (req, res) => {
 
     const findAppartment = await AppartmentModel.findOne({
       studentId: userId,
-      current: true,
     });
 
     res.status(200).json({

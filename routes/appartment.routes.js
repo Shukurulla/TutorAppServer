@@ -72,6 +72,13 @@ router.post(
       });
 
       await newAppartment.save();
+      await NotificationModel.create({
+        studentId,
+        notification_type: "report",
+        message: "Tekshirilmoqda",
+        status: "blue",
+        appartmentId: newAppartment._id,
+      });
 
       res.status(201).json({
         status: "success",
