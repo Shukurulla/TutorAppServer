@@ -781,4 +781,43 @@ router.delete("/tutor/delete/:id", authMiddleware, async (req, res) => {
   }
 });
 
+router.get("/tutor/my-groups", authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.userData;
+    const findTutor = await tutorModel.findById(userId).select("group");
+    if (!findTutor) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Bunday tutor topilmadi" });
+    }
+    res.status(200).json({ status: "success", data: findTutor });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
+router.get(
+  "/tutor/no-data-students/:groupId",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { userId } = req.userData;
+      const { groupId } = req.params;
+      const findTutor = await tutorModel.findById(userId);
+      if (!findTutor) {
+        return res
+          .status(401)
+          .json({ status: "error", message: "Bunday tutor topilmadi" });
+      }
+      const students = await StudentModel.find({ "group.id": groupId }).select(
+        "image gender university full_name short_name first_name second_name third_name province specialty level"
+      );
+
+      res.status(200).json({ status: "success", data: students });
+    } catch (error) {
+      res.status(500).json({ status: "error", message: error.message });
+    }
+  }
+);
+
 export default router;
