@@ -72,6 +72,7 @@ router.post(
       });
 
       await newAppartment.save();
+      await NotificationModel.deleteMany({ userId: studentId });
       await NotificationModel.create({
         userId: studentId,
         notification_type: "report",
