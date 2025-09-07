@@ -73,7 +73,7 @@ router.post(
 
       await newAppartment.save();
       await NotificationModel.create({
-        studentId,
+        userId: studentId,
         notification_type: "report",
         message: "Tekshirilmoqda",
         status: "blue",
