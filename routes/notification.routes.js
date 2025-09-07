@@ -35,7 +35,15 @@ router.post("/notification/report", authMiddleware, async (req, res) => {
         message: "Bu student uchun bunday notification yuborilgan",
       });
     }
-    // await AppartmentModel.findByIdAndDelete(findAppartment._id);
+    const findBlueNotification = await NotificationModel.find({
+      userId,
+      notification_type: "report",
+      status: "blue",
+    });
+
+    for (let i = 0; i < findBlueNotification.length; i++) {
+      await NotificationModel.findByIdAndDelete(findBlueNotification[i]._id);
+    }
 
     const notification = await NotificationModel.create({
       message,
@@ -141,6 +149,7 @@ router.get("/notification/report/:userId", async (req, res) => {
         message: "Bunday student topilmadi",
       });
     }
+
     const findNotifications = await NotificationModel.find({
       userId,
       notification_type: "report",

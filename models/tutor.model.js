@@ -31,6 +31,10 @@ const tutorSchema = new mongoose.Schema(
       default:
         "https://static.vecteezy.com/system/resources/thumbnails/024/983/914/small/simple-user-default-icon-free-png.png",
     },
+    facultyAdmin: {
+      type: mongoose.Types.ObjectId,
+      required: true,
+    },
   },
   { timestamps: true }
 );
