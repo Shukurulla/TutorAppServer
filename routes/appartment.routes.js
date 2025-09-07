@@ -423,7 +423,7 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
       });
     }
 
-    const findTutor = await tutorModel.findById(userId);
+    const findTutor = await tutorModel.findById(userId).lean();
     if (!findTutor) {
       return res.status(400).json({
         status: "error",
@@ -432,9 +432,15 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
     }
 
     const tutorGroups = findTutor.group.map((g) => g.name);
+
+    // studentlarni olish
     const students = await StudentModel.find({
       "group.name": { $in: tutorGroups },
-    });
+    })
+      .select(
+        "full_name image faculty group province gender department specialty"
+      )
+      .lean();
 
     if (!students.length) {
       return res.status(400).json({
@@ -446,59 +452,40 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
     const studentIds = students.map((s) => s._id);
     const queryStatus = status === "blue" ? "Being checked" : status;
 
-    // Barcha kerakli appartmentlar
-    const appartments = await AppartmentModel.find({
-      studentId: { $in: studentIds },
-      status: queryStatus,
-    })
-      .sort({ createdAt: -1 }) // Eng oxirgilari oldinda
-      .lean();
+    // eng so‘nggi appartmentlarni olish
+    const appartments = await AppartmentModel.aggregate([
+      { $match: { studentId: { $in: studentIds }, status: queryStatus } },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: "$studentId",
+          appartment: { $first: "$$ROOT" }, // faqat eng oxirgisi olinadi
+        },
+      },
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+    ]);
 
-    // Har bir student uchun eng so'nggi appartmentni tanlash
-    const latestAppartmentsMap = new Map();
-    for (const appartment of appartments) {
-      const key = appartment.studentId.toString();
-      if (!latestAppartmentsMap.has(key)) {
-        latestAppartmentsMap.set(key, appartment);
-      }
-    }
-
-    const result = [];
-    for (const student of students) {
-      const appartment = latestAppartmentsMap.get(student._id.toString());
-      if (appartment) {
-        result.push({
-          student: {
-            full_name: student.full_name,
-            image: student.image,
-            faculty: student.faculty,
-            group: student.group,
-            province: student.province,
-            gender: student.gender,
-            department: student.department,
-            specialty: student.specialty,
-          },
-          appartment,
-        });
-      }
-    }
-
-    // Pagination
-    const total = result.length;
-    const totalPages = Math.ceil(total / limit);
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedData = result.slice(startIndex, endIndex);
+    // student ma’lumotlarini qo‘shib yuborish
+    const result = appartments.map((a) => {
+      const student = students.find(
+        (s) => s._id.toString() === a._id.toString()
+      );
+      return {
+        student,
+        appartment: a.appartment,
+      };
+    });
 
     res.json({
       status: "success",
-      data: paginatedData,
+      data: result,
       pagination: {
-        total,
+        total: studentIds.length,
         page,
         limit,
-        totalPages,
-        nextPage: page < totalPages ? page + 1 : null,
+        totalPages: Math.ceil(studentIds.length / limit),
+        nextPage: page < Math.ceil(studentIds.length / limit) ? page + 1 : null,
         prevPage: page > 1 ? page - 1 : null,
       },
     });
