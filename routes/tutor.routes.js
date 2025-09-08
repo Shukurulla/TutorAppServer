@@ -805,28 +805,45 @@ router.get(
       const { groupId } = req.params;
 
       // Tutor tekshirish
-      const findTutor = await tutorModel.findById(userId);
+      const findTutor = await tutorModel.findById(userId).lean();
       if (!findTutor) {
         return res
           .status(401)
           .json({ status: "error", message: "Bunday tutor topilmadi" });
       }
 
-      // Appartmentda mavjud studentId larni olish
-      const appartmentStudents = await AppartmentModel.find(
-        {},
-        { studentId: 1, _id: 0 }
-      ).lean();
-
-      const appartmentIds = appartmentStudents.map((s) => s.studentId);
-
-      // Studentlardan appartmentda yo‘qlarni olish
-      const students = await StudentModel.find({
-        "group.id": groupId,
-        _id: { $nin: appartmentIds }, // faqat yo‘qlar
-      }).select(
-        "image gender university full_name short_name first_name second_name third_name province specialty level"
-      );
+      // Aggregation orqali faqat appartment yo‘q studentlar
+      const students = await StudentModel.aggregate([
+        {
+          $match: { "group.id": groupId }, // faqat shu guruh studentlari
+        },
+        {
+          $lookup: {
+            from: "appartments", // collection nomi (katta harf emas!)
+            localField: "_id", // StudentModel._id
+            foreignField: "studentId", // AppartmentModel.studentId
+            as: "appartmentData",
+          },
+        },
+        {
+          $match: { appartmentData: { $size: 0 } }, // faqat appartment topilmaganlar
+        },
+        {
+          $project: {
+            image: 1,
+            gender: 1,
+            university: 1,
+            full_name: 1,
+            short_name: 1,
+            first_name: 1,
+            second_name: 1,
+            third_name: 1,
+            province: 1,
+            specialty: 1,
+            level: 1,
+          },
+        },
+      ]);
 
       res.status(200).json({ status: "success", data: students });
     } catch (error) {
@@ -834,4 +851,5 @@ router.get(
     }
   }
 );
+
 export default router;
