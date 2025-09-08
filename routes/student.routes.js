@@ -31,17 +31,18 @@ router.post("/student/sign", async (req, res) => {
 
   let tokenData;
   try {
+    // HEMIS login
     const { data } = await axios.post(
       `${process.env.HEMIS_API_URL}/auth/login`,
       { login, password },
       {
-        timeout: 10000,
+        timeout: 5000, // ⏱ 10s o‘rniga 5s
         headers: { "Content-Type": "application/json" },
       }
     );
     tokenData = data;
   } catch (err) {
-    // HEMIS ishlamasa — local bazadan tekshirish
+    // Local bazadan tekshirish
     const findMockStudent = await StudentModel.findOne({
       student_id_number: login,
     }).lean();
@@ -54,29 +55,30 @@ router.post("/student/sign", async (req, res) => {
       });
     }
 
-    const token = generateToken(findMockStudent._id);
-    const existAppartment = await AppartmentModel.findOne({
-      studentId: findMockStudent._id,
-    });
+    const [existAppartment] = await Promise.all([
+      AppartmentModel.findOne({ studentId: findMockStudent._id }).lean(),
+    ]);
 
+    const token = generateToken(findMockStudent._id);
     return res.status(200).json({
       status: "success",
       student: {
         ...findMockStudent,
         existAppartment: !!existAppartment,
       },
-      hemisData: null, // HEMIS ulanmagan paytda yo‘q bo‘ladi
+      hemisData: null,
       token,
     });
   }
 
+  // HEMIS account ma'lumotini olish
   let account;
   try {
     const response = await axios.get(
       `${process.env.HEMIS_API_URL}/account/me`,
       {
         headers: { Authorization: `Bearer ${tokenData.data.token}` },
-        timeout: 10000,
+        timeout: 5000, // ⏱ tezlashtirish
       }
     );
     account = response.data;
@@ -95,16 +97,17 @@ router.post("/student/sign", async (req, res) => {
   }
 
   try {
-    const findStudent = await StudentModel.findOne({
-      student_id_number: account.data.student_id_number,
-    });
+    // Studentni bazadan topish va appartmentni tekshirishni parallel bajarish
+    const [findStudent] = await Promise.all([
+      StudentModel.findOne({
+        student_id_number: account.data.student_id_number,
+      }),
+    ]);
 
     let finalStudent;
     if (!findStudent) {
-      // Yangi student saqlaymiz
       finalStudent = await StudentModel.create(account.data);
     } else {
-      // Yangilash
       finalStudent = await StudentModel.findByIdAndUpdate(
         findStudent._id,
         { $set: account.data },
@@ -112,10 +115,12 @@ router.post("/student/sign", async (req, res) => {
       );
     }
 
-    const token = generateToken(finalStudent._id);
+    // Appartmentni parallel emas, student ID ma'lum bo‘lgach tekshiramiz
     const existAppartment = await AppartmentModel.findOne({
       studentId: finalStudent._id,
-    });
+    }).lean();
+
+    const token = generateToken(finalStudent._id);
 
     return res.status(200).json({
       status: "success",
@@ -126,7 +131,7 @@ router.post("/student/sign", async (req, res) => {
         ...finalStudent.toObject(),
         existAppartment: !!existAppartment,
       },
-      hemisData: account.data, // 🔑 qo‘shildi
+      hemisData: account.data,
       token,
     });
   } catch (error) {

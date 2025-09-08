@@ -763,6 +763,103 @@ router.post(
   }
 );
 
+router.get(
+  "/appertment/statistics/for-tutor",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { userId } = req.userData;
+
+      const findTutor = await tutorModel.findById(userId);
+      if (!findTutor) {
+        return res.status(400).json({
+          status: "error",
+          message: "Bunday tutor topilmadi",
+        });
+      }
+
+      // Tutor guruhlarini olish
+      const tutorGroups = findTutor.group.map((g) => g.name);
+
+      // Shu guruhlardagi studentlarni olish
+      const findStudents = await StudentModel.find({
+        "group.name": { $in: tutorGroups },
+      }).select("_id");
+
+      if (!findStudents.length) {
+        return res.json({
+          message: "Sizning guruhingizdagi studentlar hali mavjud emas",
+        });
+      }
+
+      // studentId larni string qilib olish
+      const studentIds = findStudents.map((s) => String(s._id));
+
+      // Aggregation bilan oxirgi appartmentlarni olish
+      const studentAppartments = await AppartmentModel.aggregate([
+        { $match: { studentId: { $in: studentIds } } },
+        { $sort: { createdAt: -1 } },
+        {
+          $group: {
+            _id: "$studentId",
+            latestAppartment: { $first: "$$ROOT" },
+          },
+        },
+      ]);
+
+      if (!studentAppartments.length) {
+        return res.json({
+          message:
+            "Sizning guruhingizdagi studentlar hali ijara ma'lumotlarini qo'shmagan",
+        });
+      }
+
+      // Statistikalar hisoblash
+      const totalCount = studentAppartments.length;
+      const statusCounts = studentAppartments.reduce(
+        (acc, { latestAppartment }) => {
+          const status = latestAppartment.status;
+          if (status === "Being checked") {
+            acc.blue += 1;
+          } else {
+            acc[status] = (acc[status] || 0) + 1;
+          }
+          return acc;
+        },
+        { green: 0, yellow: 0, red: 0, blue: 0 }
+      );
+
+      const statusPercentages = {
+        green: {
+          percent: ((statusCounts.green / totalCount) * 100).toFixed(2) + "%",
+          total: statusCounts.green,
+        },
+        yellow: {
+          percent: ((statusCounts.yellow / totalCount) * 100).toFixed(2) + "%",
+          total: statusCounts.yellow,
+        },
+        red: {
+          percent: ((statusCounts.red / totalCount) * 100).toFixed(2) + "%",
+          total: statusCounts.red,
+        },
+        blue: {
+          percent: ((statusCounts.blue / totalCount) * 100).toFixed(2) + "%",
+          total: statusCounts.blue,
+        },
+      };
+
+      res.status(200).json({
+        status: "success",
+        statistics: statusPercentages,
+        total: totalCount,
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ status: "error", message: "Server xatosi" });
+    }
+  }
+);
+
 router.delete("/tutor/delete/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
