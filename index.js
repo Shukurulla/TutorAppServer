@@ -114,7 +114,7 @@ io.on("connection", (socket) => {
         tutorId,
         message,
         groups: tutor.group.map((group) => ({
-          id: group.id,
+          id: group.code,
           name: group.name,
         })),
       });
