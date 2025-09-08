@@ -803,13 +803,28 @@ router.get(
     try {
       const { userId } = req.userData;
       const { groupId } = req.params;
+
+      // Tutor tekshirish
       const findTutor = await tutorModel.findById(userId);
       if (!findTutor) {
         return res
           .status(401)
           .json({ status: "error", message: "Bunday tutor topilmadi" });
       }
-      const students = await StudentModel.find({ "group.id": groupId }).select(
+
+      // Appartmentda mavjud studentId larni olish
+      const appartmentStudents = await AppartmentModel.find(
+        {},
+        { studentId: 1, _id: 0 }
+      ).lean();
+
+      const appartmentIds = appartmentStudents.map((s) => s.studentId);
+
+      // Studentlardan appartmentda yo‘qlarni olish
+      const students = await StudentModel.find({
+        "group.id": groupId,
+        _id: { $nin: appartmentIds }, // faqat yo‘qlar
+      }).select(
         "image gender university full_name short_name first_name second_name third_name province specialty level"
       );
 
@@ -819,5 +834,4 @@ router.get(
     }
   }
 );
-
 export default router;
