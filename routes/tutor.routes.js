@@ -881,14 +881,33 @@ router.delete("/tutor/delete/:id", authMiddleware, async (req, res) => {
 router.get("/tutor/my-groups", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
-    const findTutor = await tutorModel.findById(userId).select("group");
-    if (!findTutor) {
+
+    // Tutorni olish
+    const tutor = await tutorModel.findById(userId).lean();
+    if (!tutor) {
       return res
         .status(400)
         .json({ status: "error", message: "Bunday tutor topilmadi" });
     }
-    res.status(200).json({ status: "success", data: findTutor });
+
+    const groupsWithCounts = tutor.group.map(async (grp) => {
+      const students = await StudentModel.find({ "group.id": grp.code }).select(
+        "_id"
+      );
+      console.log(students);
+
+      const unexistStudents = await StudentModel.find({
+        studentId: { $nin: students },
+      });
+      return {
+        name: grp.name,
+        code: grp.code,
+        totalStudents: unexistStudents.length,
+      };
+    });
+    res.status(200).json({ status: "success", data: groupsWithCounts });
   } catch (error) {
+    console.error("Error in /tutor/my-groups:", error);
     res.status(500).json({ status: "error", message: error.message });
   }
 });

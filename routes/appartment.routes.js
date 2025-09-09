@@ -38,18 +38,6 @@ router.post(
       }
 
       if (
-        !typeAppartment ||
-        typeAppartment != "tenant" ||
-        typeAppartment != "relative" ||
-        typeAppartment != "bedroom" ||
-        typeAppartment != "littleHouse"
-      ) {
-        return res
-          .status(400)
-          .json({ status: "error", message: "Ijara turini togri kiriting" });
-      }
-
-      if (
         typeAppartment == "tenant" ||
         typeAppartment == "relative" ||
         typeAppartment === "littleHouse"
