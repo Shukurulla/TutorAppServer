@@ -890,21 +890,32 @@ router.get("/tutor/my-groups", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "Bunday tutor topilmadi" });
     }
 
-    const groupsWithCounts = tutor.group.map(async (grp) => {
-      const students = await StudentModel.find({ "group.id": grp.code }).select(
-        "_id"
-      );
-      console.log(students);
+    // Har bir guruh uchun studentlarni hisoblash
+    const groupsWithCounts = await Promise.all(
+      tutor.group.map(async (grp) => {
+        const students = await StudentModel.find({
+          "group.id": `${grp.code}`,
+        }).select("_id");
 
-      const unexistStudents = await StudentModel.find({
-        studentId: { $nin: students },
-      });
-      return {
-        name: grp.name,
-        code: grp.code,
-        totalStudents: unexistStudents.length,
-      };
-    });
+        // Studentlar idlarini arrayga olish
+        const studentIds = students.map((s) => s._id.toString());
+
+        // Appartment topilmagan studentlarni hisoblash
+        const unexistStudents = await AppartmentModel.find({
+          studentId: { $in: studentIds },
+        });
+
+        // Total students = studentlar soni - appartment topilganlar soni
+        const totalStudents = students.length - unexistStudents.length;
+
+        return {
+          name: grp.name,
+          code: grp.code,
+          totalStudents,
+        };
+      })
+    );
+
     res.status(200).json({ status: "success", data: groupsWithCounts });
   } catch (error) {
     console.error("Error in /tutor/my-groups:", error);
