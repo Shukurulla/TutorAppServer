@@ -37,11 +37,7 @@ router.post(
         });
       }
 
-      if (
-        typeAppartment == "tenant" ||
-        typeAppartment == "relative" ||
-        typeAppartment === "littleHouse"
-      ) {
+      if (typeAppartment == "tenant") {
         if (
           !req.files ||
           !req.files.boilerImage ||
@@ -90,6 +86,37 @@ router.post(
           message: "Ijara ma'lumotlari muvaffaqiyatli yaratildi",
           data: newAppartment,
         });
+      }
+
+      if (typeAppartment == "relative" || typeAppartment == "littleHouse") {
+        const {
+          studentId,
+          studentPhoneNumber,
+          appartmentOwnerName,
+          appartmentOwnerPhone,
+          typeAppartment,
+        } = req.body;
+
+        const appartment = await AppartmentModel.create({
+          studentId,
+          studentPhoneNumber,
+          appartmentOwnerName,
+          appartmentOwnerPhone,
+          typeAppartment,
+        });
+        const filterAppartment = {
+          studentPhoneNumber: appartment.studentPhoneNumber,
+          appartmentOwnerName: appartment.appartmentOwnerName,
+          appartmentOwnerName: appartment.appartmentOwnerName,
+          appartmentOwnerPhone: appartment.appartmentOwnerPhone,
+          typeAppartment: appartment.typeAppartment,
+          createdAt: appartment.createdAt,
+          updatedAt: appartment.updatedAt,
+          _id: appartment._id,
+        };
+        return res
+          .status(200)
+          .json({ status: "success", data: filterAppartment });
       }
 
       if (typeAppartment == "bedroom") {
