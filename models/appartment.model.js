@@ -3,55 +3,55 @@ const appartmentSchema = new mongoose.Schema(
   {
     studentId: {
       type: String,
-      required: true,
+      default: null,
     },
     studentPhoneNumber: {
       type: String,
-      required: true,
+      default: null,
     },
     district: {
       type: String,
-      required: true,
+      default: null,
     },
     fullAddress: {
       type: String,
-      required: true,
+      default: null,
     },
     smallDistrict: {
       type: String,
-      required: true,
+      default: null,
     },
     typeOfAppartment: {
       type: String,
-      required: true,
+      default: null,
     },
     contract: {
       type: Boolean,
-      required: true,
+      default: null,
     },
     typeOfBoiler: {
       type: String,
-      required: true,
+      default: null,
     },
     priceAppartment: {
       type: Number,
-      required: true,
+      default: null,
     },
     numberOfStudents: {
       type: Number,
-      required: true,
+      default: null,
     },
     appartmentOwnerName: {
       type: String,
-      required: true,
+      default: null,
     },
     appartmentOwnerPhone: {
       type: String,
-      required: true,
+      default: null,
     },
     appartmentNumber: {
       type: String,
-      required: true,
+      default: null,
     },
     addition: String,
     current: {
@@ -61,7 +61,7 @@ const appartmentSchema = new mongoose.Schema(
     boilerImage: {
       url: {
         type: String,
-        required: true,
+        default: null,
       },
       status: {
         type: String,
@@ -71,7 +71,7 @@ const appartmentSchema = new mongoose.Schema(
     gazStove: {
       url: {
         type: String,
-        required: true,
+        default: null,
       },
       status: {
         type: String,
@@ -91,7 +91,7 @@ const appartmentSchema = new mongoose.Schema(
     chimney: {
       url: {
         type: String,
-        required: true,
+        default: null,
       },
       status: {
         type: String,
@@ -109,11 +109,11 @@ const appartmentSchema = new mongoose.Schema(
     location: {
       lat: {
         type: String,
-        required: true,
+        default: null,
       },
       long: {
         type: String,
-        required: true,
+        default: null,
       },
     },
     view: {
@@ -122,6 +122,20 @@ const appartmentSchema = new mongoose.Schema(
     },
     description: {
       type: String,
+    },
+    typeAppartment: {
+      type: String,
+      enum: ["tenant", "relative", "littleHouse", "bedroom"],
+    },
+    bedroom: {
+      bedroomNumber: {
+        type: ["Number", "String"],
+        default: null,
+      },
+      roomNumber: {
+        type: ["Number", "String"],
+        default: null,
+      },
     },
   },
   { timestamps: true }

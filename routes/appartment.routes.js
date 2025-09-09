@@ -21,7 +21,7 @@ router.post(
   uploadMultipleImages,
   async (req, res) => {
     try {
-      const { studentId } = req.body;
+      const { studentId, typeAppartment } = req.body;
 
       // Studentning current appartmenti bor-yo'qligini tekshirish
       const currentAppartment = await AppartmentModel.findOne({
@@ -37,55 +37,96 @@ router.post(
         });
       }
 
-      // Multer orqali yuklangan fayllarni tekshirish
       if (
-        !req.files ||
-        !req.files.boilerImage ||
-        !req.files.gazStove ||
-        !req.files.chimney ||
-        !req.files.additionImage
+        !typeAppartment ||
+        typeAppartment != "tenant" ||
+        typeAppartment != "relative" ||
+        typeAppartment != "bedroom" ||
+        typeAppartment != "littleHouse"
       ) {
-        return res.status(400).json({
-          status: "error",
-          message: "Katyol, gazplita va Mo'ri rasmlari yuklanishi kerak",
+        return res
+          .status(400)
+          .json({ status: "error", message: "Ijara turini togri kiriting" });
+      }
+
+      if (
+        typeAppartment == "tenant" ||
+        typeAppartment == "relative" ||
+        typeAppartment === "littleHouse"
+      ) {
+        if (
+          !req.files ||
+          !req.files.boilerImage ||
+          !req.files.gazStove ||
+          !req.files.chimney ||
+          !req.files.additionImage
+        ) {
+          return res.status(400).json({
+            status: "error",
+            message: "Katyol, gazplita va Mo'ri rasmlari yuklanishi kerak",
+          });
+        }
+
+        const boilerImage = req.files.boilerImage[0];
+        const gazStove = req.files.gazStove[0];
+        const chimney = req.files.chimney[0];
+        const additionImage = req.files.additionImage[0];
+
+        const newAppartment = new AppartmentModel({
+          studentId,
+          boilerImage: { url: `/public/images/${boilerImage.filename}` },
+          gazStove: { url: `/public/images/${gazStove.filename}` },
+          chimney: { url: `/public/images/${chimney.filename}` },
+          additionImage: { url: `/public/images/${additionImage.filename}` },
+          needNew: false,
+          current: true, // Yangi appartment current bo'ladi
+          location: {
+            lat: req.body.lat,
+            long: req.body.lon,
+          },
+          ...req.body,
+        });
+
+        await newAppartment.save();
+        await NotificationModel.deleteMany({ userId: studentId });
+        await NotificationModel.create({
+          userId: studentId,
+          notification_type: "report",
+          message: "Tekshirilmoqda",
+          status: "blue",
+          appartmentId: newAppartment._id,
+        });
+
+        return res.status(201).json({
+          status: "success",
+          message: "Ijara ma'lumotlari muvaffaqiyatli yaratildi",
+          data: newAppartment,
         });
       }
 
-      const boilerImage = req.files.boilerImage[0];
-      const gazStove = req.files.gazStove[0];
-      const chimney = req.files.chimney[0];
-      const additionImage = req.files.additionImage[0];
+      if (typeAppartment == "bedroom") {
+        const { bedroomNumber, roomNumber, studentPhoneNumber } = req.body;
 
-      const newAppartment = new AppartmentModel({
-        studentId,
-        boilerImage: { url: `/public/images/${boilerImage.filename}` },
-        gazStove: { url: `/public/images/${gazStove.filename}` },
-        chimney: { url: `/public/images/${chimney.filename}` },
-        additionImage: { url: `/public/images/${additionImage.filename}` },
-        needNew: false,
-        current: true, // Yangi appartment current bo'ladi
-        location: {
-          lat: req.body.lat,
-          long: req.body.lon,
-        },
-        ...req.body,
-      });
+        const appartment = await AppartmentModel.create({
+          studentPhoneNumber,
+          bedroom: { bedroomNumber, roomNumber },
+          typeAppartment,
+        });
 
-      await newAppartment.save();
-      await NotificationModel.deleteMany({ userId: studentId });
-      await NotificationModel.create({
-        userId: studentId,
-        notification_type: "report",
-        message: "Tekshirilmoqda",
-        status: "blue",
-        appartmentId: newAppartment._id,
-      });
-
-      res.status(201).json({
-        status: "success",
-        message: "Ijara ma'lumotlari muvaffaqiyatli yaratildi",
-        data: newAppartment,
-      });
+        const filterAppartment = {
+          studentPhoneNumber: appartment.studentPhoneNumber,
+          bedroom: appartment.bedroom,
+          typeAppartment: appartment.typeAppartment,
+          _id: appartment._id,
+          createdAt: appartment.createdAt,
+          updatedAt: appartment.updatedAt,
+        };
+        return res.status(201).json({
+          status: "success",
+          message: "Ijara ma'lumotlari muvaffaqiyatli yaratildi",
+          data: filterAppartment,
+        });
+      }
     } catch (error) {
       console.error("Xatolik:", error);
       res.status(500).json({
@@ -111,7 +152,9 @@ router.get("/appartment/by-group/:name", async (req, res) => {
       "group.name": req.params.name,
     });
 
-    const appartments = await AppartmentModel.find();
+    const appartments = await AppartmentModel.find({
+      typeAppartment: "tenant",
+    }).select("-bedroom");
 
     const filteredAppartments = findStudents.map((student) => {
       // Eng oxirgi appartmentni topish
@@ -152,7 +195,9 @@ router.post("/appartment/check", authMiddleware, async (req, res) => {
       status = "green";
     }
 
-    const findAppartment = await AppartmentModel.findById(appartmentId);
+    const findAppartment = await AppartmentModel.findById(appartmentId).select(
+      "-bedroom "
+    );
     if (!findAppartment) {
       return res
         .status(400)
@@ -580,5 +625,28 @@ router.delete("/appartment/clear", authMiddleware, async (req, res) => {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
+
+router.get(
+  "/appartment/type/:type/:groupId",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { type, groupId } = req.params;
+      const students = await StudentModel.find({ "group.id": groupId }).select(
+        "_id"
+      );
+      let appartments = [];
+      for (let i = 0; i < students.length; i++) {
+        const findAppartments = await AppartmentModel.find({
+          typeAppartment: type,
+        });
+        appartments = await [...appartments, findAppartments];
+      }
+      res.status(200).json({ status: "success", data: appartments });
+    } catch (error) {
+      res.status(500).json({ status: "error", message: error.message });
+    }
+  }
+);
 
 export default router;
