@@ -9,7 +9,7 @@ import AppartmentModel from "../models/appartment.model.js";
 
 const router = express.Router();
 
-router.get("/faculty-admin/faculties-with-assignment", async (req, res) => {
+router.get("/faculties-with-assignment", async (req, res) => {
   try {
     // Studentlardan unique departmentlarni olish
     const departments = await StudentModel.aggregate([
@@ -137,90 +137,86 @@ router.get("/faculties-with-codes", async (req, res) => {
 });
 
 // Fakultet admin uchun guruhlarni olish (tutor assignment status bilan)
-router.get(
-  "/faculty-admin/groups-with-tutors",
-  authMiddleware,
-  async (req, res) => {
-    try {
-      const { userId } = req.userData;
+router.get("/groups-with-tutors", authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.userData;
 
-      // Fakultet admin profilini olish
-      const facultyAdmin = await facultyAdminModel.findById(userId);
-      if (!facultyAdmin) {
-        return res.status(401).json({
-          status: "error",
-          message: "Bunday fakultet admin topilmadi",
-        });
-      }
-
-      const facultyNames = facultyAdmin.faculties.map((f) => f.name);
-
-      // Har bir fakultet uchun guruhlarni olish
-      const allGroups = [];
-      for (const facultyName of facultyNames) {
-        const students = await StudentModel.find({
-          "department.name": facultyName,
-        }).select("group");
-
-        // Unique guruhlarni olish
-        const uniqueGroups = [];
-        const seen = new Set();
-
-        students.forEach((student) => {
-          if (student.group && student.group.name) {
-            const groupKey = `${student.group.name}_${student.group.id}`;
-            if (!seen.has(groupKey)) {
-              seen.add(groupKey);
-              uniqueGroups.push({
-                id: student.group.id,
-                name: student.group.name,
-                educationLang: student.group.educationLang || {
-                  name: "O'zbek",
-                },
-                faculty: facultyName,
-              });
-            }
-          }
-        });
-
-        allGroups.push(...uniqueGroups);
-      }
-
-      // Har bir guruh uchun tutor assignment statusini tekshirish
-      const groupsWithTutors = await Promise.all(
-        allGroups.map(async (group) => {
-          const existingTutor = await tutorModel.findOne({
-            "group.code": group.id.toString(),
-          });
-
-          return {
-            ...group,
-            isAssigned: !!existingTutor,
-            assignedToTutor: existingTutor
-              ? {
-                  id: existingTutor._id,
-                  name: existingTutor.name,
-                }
-              : null,
-          };
-        })
-      );
-
-      res.json({
-        status: "success",
-        data: groupsWithTutors,
-      });
-    } catch (error) {
-      res.status(500).json({
+    // Fakultet admin profilini olish
+    const facultyAdmin = await facultyAdminModel.findById(userId);
+    if (!facultyAdmin) {
+      return res.status(401).json({
         status: "error",
-        message: error.message,
+        message: "Bunday fakultet admin topilmadi",
       });
     }
+
+    const facultyNames = facultyAdmin.faculties.map((f) => f.name);
+
+    // Har bir fakultet uchun guruhlarni olish
+    const allGroups = [];
+    for (const facultyName of facultyNames) {
+      const students = await StudentModel.find({
+        "department.name": facultyName,
+      }).select("group");
+
+      // Unique guruhlarni olish
+      const uniqueGroups = [];
+      const seen = new Set();
+
+      students.forEach((student) => {
+        if (student.group && student.group.name) {
+          const groupKey = `${student.group.name}_${student.group.id}`;
+          if (!seen.has(groupKey)) {
+            seen.add(groupKey);
+            uniqueGroups.push({
+              id: student.group.id,
+              name: student.group.name,
+              educationLang: student.group.educationLang || {
+                name: "O'zbek",
+              },
+              faculty: facultyName,
+            });
+          }
+        }
+      });
+
+      allGroups.push(...uniqueGroups);
+    }
+
+    // Har bir guruh uchun tutor assignment statusini tekshirish
+    const groupsWithTutors = await Promise.all(
+      allGroups.map(async (group) => {
+        const existingTutor = await tutorModel.findOne({
+          "group.code": group.id.toString(),
+        });
+
+        return {
+          ...group,
+          isAssigned: !!existingTutor,
+          assignedToTutor: existingTutor
+            ? {
+                id: existingTutor._id,
+                name: existingTutor.name,
+              }
+            : null,
+        };
+      })
+    );
+
+    res.json({
+      status: "success",
+      data: groupsWithTutors,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
   }
-);
+});
 
 // Fakultet admin yaratish (faqat main admin)
-router.post("/faculty-admin/create", authMiddleware, async (req, res) => {
+router.post("/create", authMiddleware, async (req, res) => {
   try {
     const { firstName, lastName, login, password, faculties } = req.body;
 
@@ -266,7 +262,7 @@ router.post("/faculty-admin/create", authMiddleware, async (req, res) => {
 });
 
 // Barcha fakultet adminlarni olish (faqat main admin)
-router.get("/faculty-admin/list", authMiddleware, async (req, res) => {
+router.get("/list", authMiddleware, async (req, res) => {
   try {
     const facultyAdmins = await facultyAdminModel.find();
     res.status(200).json({ status: "success", data: facultyAdmins });
@@ -276,7 +272,7 @@ router.get("/faculty-admin/list", authMiddleware, async (req, res) => {
 });
 
 // Fakultet admin profili (fakultet admin uchun)
-router.get("/faculty-admin/profile", authMiddleware, async (req, res) => {
+router.get("/profile", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
     const findFacultyAdmin = await facultyAdminModel.findById(userId);
@@ -295,7 +291,7 @@ router.get("/faculty-admin/profile", authMiddleware, async (req, res) => {
 });
 
 // Fakultet admin tomonidan tutor yaratish
-router.post("/faculty-admin/tutor-create", authMiddleware, async (req, res) => {
+router.post("/tutor-create", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
     const findFacultyAdmin = await facultyAdminModel.findById(userId);
@@ -350,7 +346,7 @@ router.post("/faculty-admin/tutor-create", authMiddleware, async (req, res) => {
 });
 
 // Fakultet admin o'zining tutorlarini olish
-router.get("/faculty-admin/my-tutors", authMiddleware, async (req, res) => {
+router.get("/my-tutors", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
     const findFacultyAdmin = await facultyAdminModel.findById(userId);
