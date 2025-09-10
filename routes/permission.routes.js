@@ -168,9 +168,7 @@ router.get("/:permissionId/:groupId", authMiddleware, async (req, res) => {
     // Guruhdagi studentlarni olish
     const findStudents = await StudentModel.find({
       "group.id": groupId,
-    }).select(
-      "_id image full_name short_name first_name third_name second_name group department"
-    );
+    }).select("_id ");
 
     // Faqat _id larni massivga olish
     const studentIds = findStudents.map((s) => s._id);
@@ -180,13 +178,18 @@ router.get("/:permissionId/:groupId", authMiddleware, async (req, res) => {
       permission: permissionId,
       typeAppartment: "tenant",
       studentId: { $in: studentIds },
-    }).lean();
+    })
+      .select("_id studentId permission")
+      .lean();
 
     // Har bir appartment uchun student ma'lumotini olish
     const data = await Promise.all(
       findAppartments.map(async (appartment) => {
         const student = await StudentModel.findById(appartment.studentId)
-        .lean();
+          .select(
+            "_id group department full_name image short_name second_name first_name third_name"
+          )
+          .lean();
 
         return {
           appartment,
@@ -205,6 +208,26 @@ router.get("/:permissionId/:groupId", authMiddleware, async (req, res) => {
   }
 });
 
-router.post("/");
+router.post("/special", authMiddleware, async (req, res) => {
+  try {
+    const { students } = req.body;
+
+    students.map(async (st) => {
+      await NotificationModel.create({
+        userId: st.studentId.toString(),
+        status: "red",
+        notification_type: "report",
+        permission: st.permissionId,
+        message: "Ijara ma'lumotlarini qayta jo'nating",
+      });
+    });
+    res.status(200).json({
+      status: "success",
+      message: "Tanlangan studentlar uchun xabarnoma jonatildi",
+    });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
 
 export default router;
