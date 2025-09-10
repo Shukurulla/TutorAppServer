@@ -186,7 +186,7 @@ router.get("/:permissionId/:groupId", authMiddleware, async (req, res) => {
       findAppartments.map(async (appartment) => {
         const student = await StudentModel.findById(appartment.studentId)
           .select(
-            "_id group department gender province level university full_name image short_name second_name first_name third_name"
+            "_id group department gender province level specialty university full_name image short_name second_name first_name third_name"
           )
           .lean();
 
