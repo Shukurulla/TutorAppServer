@@ -186,7 +186,7 @@ router.get("/:permissionId/:groupId", authMiddleware, async (req, res) => {
       findAppartments.map(async (appartment) => {
         const student = await StudentModel.findById(appartment.studentId)
           .select(
-            "_id group department full_name image short_name second_name first_name third_name"
+            "_id group department gender province level university full_name image short_name second_name first_name third_name"
           )
           .lean();
 
@@ -211,7 +211,21 @@ router.post("/special", authMiddleware, async (req, res) => {
   try {
     const { students } = req.body;
 
-    students.map(async (st) => {
+    for (const st of students) {
+      const findRedNotification = await NotificationModel.findOne({
+        notification_type: "report",
+        status: "red",
+        userId: st.studentId, // 🔥 oldin st._id edi, lekin create-da studentId ishlatyapsiz
+        permission: st.permissionId,
+      });
+
+      if (findRedNotification) {
+        return res.status(400).json({
+          status: "error",
+          message: `Student ${st.studentId} uchun avval yuborilgan xabarnoma hali to‘ldirilmagan`,
+        });
+      }
+
       await NotificationModel.create({
         userId: st.studentId.toString(),
         status: "red",
@@ -219,12 +233,14 @@ router.post("/special", authMiddleware, async (req, res) => {
         permission: st.permissionId,
         message: "Ijara ma'lumotlarini qayta jo'nating",
       });
-    });
+    }
+
     res.status(200).json({
       status: "success",
-      message: "Tanlangan studentlar uchun xabarnoma jonatildi",
+      message: "Tanlangan studentlar uchun xabarnoma jo‘natildi",
     });
   } catch (error) {
+    console.error("❌ Error in /special:", error);
     res.status(500).json({ status: "error", message: error.message });
   }
 });
