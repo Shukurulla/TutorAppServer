@@ -1,3 +1,4 @@
+// models/tutor.model.js
 import mongoose from "mongoose";
 
 const tutorSchema = new mongoose.Schema(
@@ -33,6 +34,7 @@ const tutorSchema = new mongoose.Schema(
     },
     facultyAdmin: {
       type: mongoose.Types.ObjectId,
+      ref: "facultyAdmin",
       required: true,
     },
   },

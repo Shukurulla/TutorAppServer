@@ -140,6 +140,7 @@ router.get("/:permissionId", authMiddleware, async (req, res) => {
 
         return {
           groupName: gr.name,
+          code: gr.code,
           countDocuments: countStudents,
         };
       })

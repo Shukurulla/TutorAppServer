@@ -3,6 +3,11 @@ import authMiddleware from "../middlewares/auth.middleware.js";
 import adminModel from "../models/admin.model.js";
 import AppartmentModel from "../models/appartment.model.js";
 import StudentModel from "../models/student.model.js";
+import facultyAdminModel from "../models/faculty.admin.model.js";
+import {
+  requireFacultyAdmin,
+  requireMainAdmin,
+} from "../middlewares/auth.middleware.js";
 import axios from "axios";
 import { config } from "dotenv";
 config();
@@ -112,6 +117,127 @@ router.get("/statistics/appartments/map", authMiddleware, async (req, res) => {
     });
   }
 });
+
+router.get(
+  "/statistics/faculty-admin/students",
+  authMiddleware,
+  requireFacultyAdmin,
+  async (req, res) => {
+    try {
+      const { userId } = req.userData;
+
+      // Faculty admin profilini olish
+      const facultyAdmin = await facultyAdminModel.findById(userId);
+      if (!facultyAdmin) {
+        return res.status(404).json({
+          status: "error",
+          message: "Fakultet admin topilmadi",
+        });
+      }
+
+      // Fakultet nomlarini olish
+      const facultyNames = facultyAdmin.faculties.map((f) => f.name);
+
+      // Shu fakultetlardagi studentlarni olish
+      const students = await StudentModel.find({
+        "department.name": { $in: facultyNames },
+      }).select("gender department group level");
+
+      // Jins bo'yicha statistika
+      const genderStats = students.reduce((acc, student) => {
+        const gender = student.gender?.name || "Noma'lum";
+        acc[gender] = (acc[gender] || 0) + 1;
+        return acc;
+      }, {});
+
+      // Kurs bo'yicha statistika
+      const levelStats = students.reduce((acc, student) => {
+        const level = student.level?.name || "Noma'lum";
+        acc[level] = (acc[level] || 0) + 1;
+        return acc;
+      }, {});
+
+      // Fakultet bo'yicha statistika
+      const facultyStats = students.reduce((acc, student) => {
+        const faculty = student.department?.name || "Noma'lum";
+        acc[faculty] = (acc[faculty] || 0) + 1;
+        return acc;
+      }, {});
+
+      res.json({
+        status: "success",
+        data: {
+          total: students.length,
+          genderStats,
+          levelStats,
+          facultyStats,
+          faculties: facultyNames,
+        },
+      });
+    } catch (error) {
+      console.error("Faculty admin statistics error:", error);
+      res.status(500).json({ status: "error", message: error.message });
+    }
+  }
+);
+
+// Faculty admin uchun ijara statistikasi
+router.get(
+  "/statistics/faculty-admin/appartments",
+  authMiddleware,
+  requireFacultyAdmin,
+  async (req, res) => {
+    try {
+      const { userId } = req.userData;
+
+      // Faculty admin profilini olish
+      const facultyAdmin = await facultyAdminModel.findById(userId);
+      if (!facultyAdmin) {
+        return res.status(404).json({
+          status: "error",
+          message: "Fakultet admin topilmadi",
+        });
+      }
+
+      // Fakultet nomlarini olish
+      const facultyNames = facultyAdmin.faculties.map((f) => f.name);
+
+      // Shu fakultetlardagi studentlarni olish
+      const students = await StudentModel.find({
+        "department.name": { $in: facultyNames },
+      }).select("_id");
+
+      const studentIds = students.map((s) => s._id);
+
+      // Ijara ma'lumotlarini olish
+      const appartments = await AppartmentModel.find({
+        studentId: { $in: studentIds },
+        status: { $ne: "Being checked" },
+      });
+
+      // Status bo'yicha statistika
+      const statusStats = appartments.reduce((acc, apt) => {
+        const status = apt.status;
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {});
+
+      res.json({
+        status: "success",
+        data: {
+          totalStudents: students.length,
+          totalAppartments: appartments.length,
+          studentsWithAppartments: appartments.length,
+          studentsWithoutAppartments: students.length - appartments.length,
+          statusStats,
+        },
+      });
+    } catch (error) {
+      console.error("Faculty admin appartments statistics error:", error);
+      res.status(500).json({ status: "error", message: error.message });
+    }
+  }
+);
 
 router.get(
   "/statistics/appartments/level",

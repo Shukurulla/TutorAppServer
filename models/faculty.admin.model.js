@@ -1,3 +1,4 @@
+// models/faculty.admin.model.js
 import mongoose from "mongoose";
 
 const facultyAdminSchema = new mongoose.Schema(
@@ -17,7 +18,7 @@ const facultyAdminSchema = new mongoose.Schema(
           required: true,
         },
         code: {
-          type: [Number, String],
+          type: String,
           required: true,
         },
       },
@@ -25,14 +26,17 @@ const facultyAdminSchema = new mongoose.Schema(
     login: {
       type: String,
       required: true,
+      unique: true,
     },
     password: {
       type: String,
       required: true,
+      // Hash qilinmaydi chunki sizning talabingiz bo'yicha
     },
     role: {
       type: String,
       default: "facultyAdmin",
+      enum: ["facultyAdmin"],
     },
   },
   {

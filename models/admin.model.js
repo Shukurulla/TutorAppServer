@@ -1,3 +1,4 @@
+// models/admin.model.js
 import mongoose from "mongoose";
 
 const adminSchema = new mongoose.Schema(
@@ -12,8 +13,8 @@ const adminSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-
-      default: "admin",
+      default: "mainAdmin",
+      enum: ["mainAdmin", "facultyAdmin"],
     },
   },
   { timestamps: true }

@@ -1,3 +1,4 @@
+// index.js (yangilangan qism - faqat import va route qo'shish)
 import express from "express";
 import { config } from "dotenv";
 import { createServer } from "http";
@@ -11,6 +12,7 @@ import FilledRouter from "./routes/detail.routes.js";
 import NotificationRouter from "./routes/notification.routes.js";
 import AdsRouter from "./routes/ads.routes.js";
 import TutorNotificationRouter from "./routes/tutorNotificaton.routes.js";
+import FacultyAdminRouter from "./routes/faculty.admin.routes.js"; // YANGI QOSHILDI
 import mongoose from "mongoose";
 import cors from "cors";
 import path from "path";
@@ -51,16 +53,16 @@ app.use(
   })
 );
 
-// ASOSIY O'ZGARISH: Body parser limitlari
+// Body parser limitlari
 app.use(
   express.json({
-    limit: "100mb", // 1000mb dan 100mb ga
+    limit: "100mb",
   })
 );
 app.use(
   express.urlencoded({
     extended: true,
-    limit: "100mb", // 1000mb dan 100mb ga
+    limit: "100mb",
     parameterLimit: 50000,
   })
 );
@@ -75,24 +77,12 @@ mongoose
   .connect(mongo_url)
   .then(async () => {
     console.log("✅ Database connected successfully");
-
-    // 🚀 AVTOMATIK STUDENT MA'LUMOTLARINI YANGILASH
-    console.log("🔄 Starting automatic student data refresh...");
-
-    // Background da ishga tushirish (server start bo'lishini to'xtatmaydi)
-    // setTimeout(async () => {
-    //   try {
-    //     await autoRefreshStudentData();
-    //   } catch (error) {
-    //     console.error("❌ Auto refresh error:", error.message);
-    //   }
-    // }, 2000); // 2 sekund kutib ishga tushirish
   })
   .catch((error) => {
     console.error("❌ Database connection error:", error);
   });
 
-// Socket handler
+// Socket handler (o'zgarishsiz qoladi)
 io.on("connection", (socket) => {
   console.log("Yangi foydalanuvchi ulandi:", socket.id);
 
@@ -151,6 +141,7 @@ app.use(AdsRouter);
 app.use(ChatRouter);
 app.use("/tutor-notification", TutorNotificationRouter);
 app.use("/permission", PermissionRouter);
+app.use("/faculty-admin", FacultyAdminRouter); // YANGI ROUTE QOSHILDI
 
 app.get("/", async (req, res) => {
   res.json({ message: "Server is running successfully" });
@@ -167,11 +158,10 @@ app.get("/get-banners", async (req, res) => {
   res.status(200).json({ status: "success", data: arrBanner });
 });
 
-// YANGI: Multer error handling middleware
+// Error handling middleware
 app.use((error, req, res, next) => {
   console.error("Server Error:", error);
 
-  // Multer xatoliklari
   if (error.code === "LIMIT_FILE_SIZE") {
     return res.status(413).json({
       status: "error",
@@ -195,7 +185,6 @@ app.use((error, req, res, next) => {
     });
   }
 
-  // Express body parser xatoliklari
   if (error.type === "entity.too.large") {
     return res.status(413).json({
       status: "error",
