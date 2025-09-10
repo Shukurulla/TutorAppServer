@@ -261,4 +261,103 @@ router.get("/admin/me", authMiddleware, async (req, res) => {
   }
 });
 
+router.put("/admin/faculty-admin/:id", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { firstName, lastName, login, password } = req.body;
+
+    if (!firstName || !lastName || !login) {
+      return res.status(400).json({
+        status: "error",
+        message: "Iltimos, barcha majburiy maydonlarni to'liq kiriting",
+      });
+    }
+
+    // Login unique ekanligini tekshirish (o'zi bundan tashqari)
+    const existingFacultyAdmin = await facultyAdminModel.findOne({
+      login,
+      _id: { $ne: id },
+    });
+
+    if (existingFacultyAdmin) {
+      return res.status(400).json({
+        status: "error",
+        message: "Bu login allaqachon ishlatilgan",
+      });
+    }
+
+    const updateData = {
+      firstName,
+      lastName,
+      login,
+    };
+
+    // Agar parol berilgan bo'lsa, uni ham yangilaymiz
+    if (password) {
+      updateData.password = password; // Hash qilinmaydi
+    }
+
+    const updatedFacultyAdmin = await facultyAdminModel.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      { new: true }
+    );
+
+    if (!updatedFacultyAdmin) {
+      return res.status(404).json({
+        status: "error",
+        message: "Fakultet admin topilmadi",
+      });
+    }
+
+    res.status(200).json({
+      status: "success",
+      message: "Fakultet admin muvaffaqiyatli yangilandi",
+      data: updatedFacultyAdmin,
+    });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
+// Fakultetni fakultet admindan o'chirish
+router.delete("/admin/remove-faculty", authMiddleware, async (req, res) => {
+  try {
+    const { facultyAdminId, facultyName } = req.body;
+
+    if (!facultyAdminId || !facultyName) {
+      return res.status(400).json({
+        status: "error",
+        message: "Fakultet admin ID va fakultet nomi majburiy",
+      });
+    }
+
+    const facultyAdmin = await facultyAdminModel.findById(facultyAdminId);
+    if (!facultyAdmin) {
+      return res.status(404).json({
+        status: "error",
+        message: "Fakultet admin topilmadi",
+      });
+    }
+
+    // Fakultetni ro'yxatdan o'chirish
+    const updatedFaculties = facultyAdmin.faculties.filter(
+      (faculty) => faculty.name !== facultyName
+    );
+
+    await facultyAdminModel.findByIdAndUpdate(
+      facultyAdminId,
+      { $set: { faculties: updatedFaculties } },
+      { new: true }
+    );
+
+    res.status(200).json({
+      status: "success",
+      message: "Fakultet muvaffaqiyatli o'chirildi",
+    });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
 export default router;
