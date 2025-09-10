@@ -87,6 +87,7 @@ router.get("/my-permissions", authMiddleware, async (req, res) => {
         });
 
         return {
+          _id: perm._id,
           date: moment(perm.createdAt).format("DD.MM.YYYY"),
           countDocuments: findAppartment, // nechta hujjat
           status: perm.status,
@@ -101,6 +102,87 @@ router.get("/my-permissions", authMiddleware, async (req, res) => {
   }
 });
 
-router.get("/all-permissions", authMiddleware);
+router.get("/:permissionId", authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.userData;
+    const { permissionId } = req.params;
+
+    const findTutor = await tutorModel.findById(userId);
+    if (!findTutor) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Bunday tutor topilmadi" });
+    }
+
+    const permission = await permissionModel.findById(permissionId);
+    if (!permission) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Bunday permission topilmadi" });
+    }
+
+    // map ichidagi async funksiyalarni await bilan ishlatish
+    const fullData = await Promise.all(
+      findTutor.group.map(async (gr) => {
+        // Guruhdagi studentlarni olish
+        const findStudents = await StudentModel.find({
+          "group.id": `${gr.code}`,
+        }).select("_id");
+
+        // Student _id larini massivga olish
+        const studentIds = findStudents.map((s) => `${s._id}`);
+
+        // Appartmentlar sonini hisoblash
+        const countStudents = await AppartmentModel.countDocuments({
+          studentId: { $in: studentIds },
+          permission: permission._id.toString(),
+        });
+
+        return {
+          groupName: gr.name,
+          countDocuments: countStudents,
+        };
+      })
+    );
+
+    res.status(200).json({ status: "success", data: fullData });
+  } catch (error) {
+    console.error("❌ Permission details error:", error);
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
+router.get("/:permissionId/:groupId", authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.userData;
+    const { permissionId, groupId } = req.params;
+
+    const findTutor = await tutorModel.findById(userId);
+    if (!findTutor) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Bunday tutor topilmadi" });
+    }
+
+    // Guruhdagi studentlarni olish
+    const findStudents = await StudentModel.find({
+      "group.id": groupId,
+    }).select("_id");
+
+    // Faqat _id larni massivga olish
+    const studentIds = findStudents.map((s) => s._id);
+
+    // Appartmentlarni olish
+    const findAppartments = await AppartmentModel.find({
+      permission: permissionId,
+      studentId: { $in: studentIds },
+    });
+
+    res.status(200).json({ status: "success", data: findAppartments });
+  } catch (error) {
+    console.error("❌ Error fetching appartments:", error);
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
 
 export default router;
