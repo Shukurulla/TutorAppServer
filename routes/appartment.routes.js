@@ -127,7 +127,10 @@ router.post(
         const appartment = await AppartmentModel.create({
           studentPhoneNumber,
           studentId,
-          bedroom: { bedroomNumber, roomNumber },
+          bedroom: {
+            bedroomNumber: bedroomNumber.toString(),
+            roomNumber: roomNumber.toString(),
+          },
           typeAppartment,
         });
 
@@ -424,6 +427,7 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
     // barcha kerakli appartments
     const appartments = await AppartmentModel.find({
       studentId: { $in: studentIds },
+      typeAppartment: "tenant",
       status: queryStatus,
     })
       .sort({ createdAt: -1 }) // oxirgilarni oldin

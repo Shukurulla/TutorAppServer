@@ -184,8 +184,8 @@ router.post("/tutor/login", async (req, res) => {
         message: "Iltimos, ma'lumotlarni to'liq kiriting",
       });
     }
-
     const findTutor = await tutorModel.findOne({ login });
+
     if (!findTutor) {
       return res
         .status(400)
@@ -797,7 +797,9 @@ router.get(
 
       // Aggregation bilan oxirgi appartmentlarni olish
       const studentAppartments = await AppartmentModel.aggregate([
-        { $match: { studentId: { $in: studentIds } } },
+        {
+          $match: { studentId: { $in: studentIds }, typeAppartment: "tenant" },
+        },
         { $sort: { createdAt: -1 } },
         {
           $group: {

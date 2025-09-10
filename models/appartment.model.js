@@ -129,11 +129,11 @@ const appartmentSchema = new mongoose.Schema(
     },
     bedroom: {
       bedroomNumber: {
-        type: ["Number", "String"],
+        type: String,
         default: null,
       },
       roomNumber: {
-        type: ["Number", "String"],
+        type: String,
         default: null,
       },
     },
