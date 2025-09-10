@@ -42,8 +42,7 @@ router.post(
           !req.files ||
           !req.files.boilerImage ||
           !req.files.gazStove ||
-          !req.files.chimney ||
-          !req.files.additionImage
+          !req.files.chimney
         ) {
           return res.status(400).json({
             status: "error",
@@ -54,14 +53,19 @@ router.post(
         const boilerImage = req.files.boilerImage[0];
         const gazStove = req.files.gazStove[0];
         const chimney = req.files.chimney[0];
-        const additionImage = req.files.additionImage[0];
+        const additionImage = req.files?.additionImage
+          ? req.files?.additionImage[0]
+          : null;
 
         const newAppartment = new AppartmentModel({
           studentId,
           boilerImage: { url: `/public/images/${boilerImage.filename}` },
           gazStove: { url: `/public/images/${gazStove.filename}` },
           chimney: { url: `/public/images/${chimney.filename}` },
-          additionImage: { url: `/public/images/${additionImage.filename}` },
+          additionImage:
+            additionImage !== null
+              ? { url: `/public/images/${additionImage?.filename}` }
+              : null,
           needNew: false,
           current: true, // Yangi appartment current bo'ladi
           location: {

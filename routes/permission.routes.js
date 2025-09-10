@@ -168,7 +168,9 @@ router.get("/:permissionId/:groupId", authMiddleware, async (req, res) => {
     // Guruhdagi studentlarni olish
     const findStudents = await StudentModel.find({
       "group.id": groupId,
-    }).select("_id");
+    }).select(
+      "_id image full_name short_name first_name third_name second_name group department"
+    );
 
     // Faqat _id larni massivga olish
     const studentIds = findStudents.map((s) => s._id);
@@ -176,14 +178,33 @@ router.get("/:permissionId/:groupId", authMiddleware, async (req, res) => {
     // Appartmentlarni olish
     const findAppartments = await AppartmentModel.find({
       permission: permissionId,
+      typeAppartment: "tenant",
       studentId: { $in: studentIds },
-    });
+    }).lean();
 
-    res.status(200).json({ status: "success", data: findAppartments });
+    // Har bir appartment uchun student ma'lumotini olish
+    const data = await Promise.all(
+      findAppartments.map(async (appartment) => {
+        const student = await StudentModel.findById(appartment.studentId)
+        .lean();
+
+        return {
+          appartment,
+          student,
+        };
+      })
+    );
+
+    res.status(200).json({
+      status: "success",
+      data,
+    });
   } catch (error) {
     console.error("❌ Error fetching appartments:", error);
     res.status(500).json({ status: "error", message: error.message });
   }
 });
+
+router.post("/");
 
 export default router;
