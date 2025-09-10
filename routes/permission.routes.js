@@ -88,7 +88,7 @@ router.get("/my-permissions", authMiddleware, async (req, res) => {
 
         return {
           _id: perm._id,
-          date: moment(perm.createdAt).format("DD.MM.YYYY"),
+          date: perm.createdAt,
           countDocuments: findAppartment, // nechta hujjat
           status: perm.status,
         };
