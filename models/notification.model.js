@@ -12,7 +12,6 @@ const notificationSchema = new mongoose.Schema(
     },
     appartmentId: {
       type: String,
-      required: true,
     },
     isRead: {
       type: Boolean,
@@ -23,11 +22,14 @@ const notificationSchema = new mongoose.Schema(
     },
     need_data: {
       type: String,
-      default: null
+      default: null,
     },
     notification_type: {
       type: String,
       enum: ["report", "push"],
+    },
+    permission: {
+      type: String,
     },
   },
   {

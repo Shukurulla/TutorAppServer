@@ -21,6 +21,7 @@ import chatModel from "./models/chat.model.js";
 import StudentModel from "./models/student.model.js";
 import axios from "axios";
 import { autoRefreshStudentData } from "./utils/refreshData.js";
+import PermissionRouter from "./routes/permission.routes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -149,6 +150,7 @@ app.use(NotificationRouter);
 app.use(AdsRouter);
 app.use(ChatRouter);
 app.use("/tutor-notification", TutorNotificationRouter);
+app.use("/permission", PermissionRouter);
 
 app.get("/", async (req, res) => {
   res.json({ message: "Server is running successfully" });

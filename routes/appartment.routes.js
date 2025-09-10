@@ -95,6 +95,7 @@ router.post(
           appartmentOwnerName,
           appartmentOwnerPhone,
           typeAppartment,
+          permission,
         } = req.body;
 
         const appartment = await AppartmentModel.create({
@@ -103,6 +104,7 @@ router.post(
           appartmentOwnerName,
           appartmentOwnerPhone,
           typeAppartment,
+          permission,
         });
 
         const filterAppartment = {
@@ -114,6 +116,7 @@ router.post(
           createdAt: appartment.createdAt,
           updatedAt: appartment.updatedAt,
           _id: appartment._id,
+          permission: appartment.appartment,
         };
         return res
           .status(200)
@@ -121,12 +124,18 @@ router.post(
       }
 
       if (typeAppartment == "bedroom") {
-        const { studentId, bedroomNumber, roomNumber, studentPhoneNumber } =
-          req.body;
+        const {
+          studentId,
+          bedroomNumber,
+          permission,
+          roomNumber,
+          studentPhoneNumber,
+        } = req.body;
 
         const appartment = await AppartmentModel.create({
           studentPhoneNumber,
           studentId,
+          permission,
           bedroom: {
             bedroomNumber: bedroomNumber.toString(),
             roomNumber: roomNumber.toString(),
@@ -141,6 +150,7 @@ router.post(
           _id: appartment._id,
           studentId: appartment.studentId,
           createdAt: appartment.createdAt,
+          permission: appartment.permission,
           updatedAt: appartment.updatedAt,
         };
         return res.status(201).json({

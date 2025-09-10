@@ -137,6 +137,10 @@ const appartmentSchema = new mongoose.Schema(
         default: null,
       },
     },
+    permission: {
+      type: String,
+      required: true,
+    },
   },
   { timestamps: true }
 );
