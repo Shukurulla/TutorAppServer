@@ -9,6 +9,74 @@ import tutorModel from "../models/tutor.model.js";
 
 const router = express.Router();
 
+router.get("/admin/faculty-admins/search", authMiddleware, async (req, res) => {
+  try {
+    const { q } = req.query; // search query
+
+    let query = {};
+    if (q) {
+      query = {
+        $or: [
+          { firstName: { $regex: q, $options: "i" } },
+          { lastName: { $regex: q, $options: "i" } },
+          { login: { $regex: q, $options: "i" } },
+          { "faculties.name": { $regex: q, $options: "i" } },
+        ],
+      };
+    }
+
+    const facultyAdmins = await facultyAdminModel
+      .find(query)
+      .select("-password");
+
+    const formattedFacultyAdmins = facultyAdmins.map((admin) => ({
+      _id: admin._id,
+      firstName: admin.firstName,
+      lastName: admin.lastName,
+      fullName: `${admin.firstName} ${admin.lastName}`,
+      login: admin.login,
+      faculties: admin.faculties,
+      role: admin.role,
+      createdAt: admin.createdAt,
+      updatedAt: admin.updatedAt,
+    }));
+
+    res.status(200).json({ status: "success", data: formattedFacultyAdmins });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
+// Faculty admin uchun tutorlarni search qilish
+router.get("/faculty-admin/tutors/search", authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.userData;
+    const { q } = req.query;
+
+    const findFacultyAdmin = await facultyAdminModel.findById(userId);
+    if (!findFacultyAdmin) {
+      return res.status(401).json({
+        status: "error",
+        message: "Bunday fakultet admin topilmadi",
+      });
+    }
+
+    let query = { facultyAdmin: userId };
+    if (q) {
+      query.$or = [
+        { name: { $regex: q, $options: "i" } },
+        { login: { $regex: q, $options: "i" } },
+        { "group.name": { $regex: q, $options: "i" } },
+      ];
+    }
+
+    const findTutors = await tutorModel.find(query);
+    res.status(200).json({ status: "success", data: findTutors });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
 // Yangilangan login tizimi
 router.post("/admin/login", async (req, res) => {
   try {

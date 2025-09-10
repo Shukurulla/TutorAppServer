@@ -926,6 +926,91 @@ router.get("/tutor/my-groups", authMiddleware, async (req, res) => {
 });
 
 router.get(
+  "/tutor/groups-with-assignment",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { userId } = req.userData;
+
+      // Fakultet admin profilini olish
+      const facultyAdmin = await facultyAdminModel.findById(userId);
+      if (!facultyAdmin) {
+        return res.status(401).json({
+          status: "error",
+          message: "Bunday fakultet admin topilmadi",
+        });
+      }
+
+      const facultyNames = facultyAdmin.faculties.map((f) => f.name);
+
+      // Fakultetlardagi guruhlarni olish
+      const allGroups = [];
+      for (const facultyName of facultyNames) {
+        const students = await StudentModel.find({
+          "department.name": facultyName,
+        }).select("group");
+
+        // Unique guruhlarni olish
+        const uniqueGroups = [];
+        const seen = new Set();
+
+        students.forEach((student) => {
+          if (student.group && student.group.name) {
+            const groupKey = `${student.group.name}_${student.group.id}`;
+            if (!seen.has(groupKey)) {
+              seen.add(groupKey);
+              uniqueGroups.push({
+                id: student.group.id,
+                name: student.group.name,
+                educationLang: student.group.educationLang || {
+                  name: "O'zbek",
+                },
+                faculty: facultyName,
+              });
+            }
+          }
+        });
+
+        allGroups.push(...uniqueGroups);
+      }
+
+      // Har bir guruh uchun tutor assignment statusini tekshirish
+      const groupsWithAssignment = await Promise.all(
+        allGroups.map(async (group) => {
+          const existingTutor = await tutorModel
+            .findOne({
+              "group.code": group.id.toString(),
+              facultyAdmin: userId,
+            })
+            .select("name");
+
+          return {
+            ...group,
+            isAssigned: !!existingTutor,
+            assignedToTutor: existingTutor
+              ? {
+                  id: existingTutor._id,
+                  name: existingTutor.name,
+                }
+              : null,
+          };
+        })
+      );
+
+      res.json({
+        status: "success",
+        data: groupsWithAssignment,
+      });
+    } catch (error) {
+      res.status(500).json({
+        status: "error",
+        message: error.message,
+      });
+    }
+  }
+);
+
+router.get(
   "/tutor/no-data-students/:groupId",
   authMiddleware,
   async (req, res) => {

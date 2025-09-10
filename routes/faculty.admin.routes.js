@@ -9,6 +9,216 @@ import AppartmentModel from "../models/appartment.model.js";
 
 const router = express.Router();
 
+router.get("/faculty-admin/faculties-with-assignment", async (req, res) => {
+  try {
+    // Studentlardan unique departmentlarni olish
+    const departments = await StudentModel.aggregate([
+      {
+        $group: {
+          _id: {
+            name: "$department.name",
+            code: "$department.code",
+          },
+        },
+      },
+      {
+        $match: {
+          "_id.name": { $ne: null, $exists: true },
+        },
+      },
+      {
+        $project: {
+          name: "$_id.name",
+          code: "$_id.code",
+          _id: 0,
+        },
+      },
+      {
+        $sort: { name: 1 },
+      },
+    ]);
+
+    // Har bir fakultet uchun assignment statusini tekshirish
+    const facultiesWithStatus = await Promise.all(
+      departments.map(async (dept) => {
+        const existingAdmin = await facultyAdminModel
+          .findOne({
+            "faculties.name": dept.name,
+          })
+          .select("firstName lastName");
+
+        return {
+          name: dept.name,
+          code: dept.code || dept.name.toLowerCase().replace(/\s+/g, "_"),
+          isAssigned: !!existingAdmin,
+          assignedToAdmin: existingAdmin
+            ? {
+                id: existingAdmin._id,
+                name: `${existingAdmin.firstName} ${existingAdmin.lastName}`,
+              }
+            : null,
+        };
+      })
+    );
+
+    res.json({
+      status: "success",
+      data: facultiesWithStatus,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+});
+
+// Fakultetlar ro'yxatini olish (name va code bilan)
+router.get("/faculties-with-codes", async (req, res) => {
+  try {
+    // Studentlardan unique departmentlarni olish
+    const departments = await StudentModel.aggregate([
+      {
+        $group: {
+          _id: {
+            name: "$department.name",
+            code: "$department.code",
+          },
+        },
+      },
+      {
+        $match: {
+          "_id.name": { $ne: null, $exists: true },
+        },
+      },
+      {
+        $project: {
+          name: "$_id.name",
+          code: "$_id.code",
+          _id: 0,
+        },
+      },
+      {
+        $sort: { name: 1 },
+      },
+    ]);
+
+    // Har bir fakultet uchun allaqachon fakultet admin bor-yo'qligini tekshirish
+    const facultiesWithAdmins = await Promise.all(
+      departments.map(async (dept) => {
+        const existingAdmin = await facultyAdminModel.findOne({
+          "faculties.name": dept.name,
+        });
+
+        return {
+          name: dept.name,
+          code: dept.code || dept.name.toLowerCase().replace(/\s+/g, "_"),
+          isAssigned: !!existingAdmin,
+          assignedToAdmin: existingAdmin
+            ? {
+                id: existingAdmin._id,
+                name: `${existingAdmin.firstName} ${existingAdmin.lastName}`,
+              }
+            : null,
+        };
+      })
+    );
+
+    res.json({
+      status: "success",
+      data: facultiesWithAdmins,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+});
+
+// Fakultet admin uchun guruhlarni olish (tutor assignment status bilan)
+router.get(
+  "/faculty-admin/groups-with-tutors",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { userId } = req.userData;
+
+      // Fakultet admin profilini olish
+      const facultyAdmin = await facultyAdminModel.findById(userId);
+      if (!facultyAdmin) {
+        return res.status(401).json({
+          status: "error",
+          message: "Bunday fakultet admin topilmadi",
+        });
+      }
+
+      const facultyNames = facultyAdmin.faculties.map((f) => f.name);
+
+      // Har bir fakultet uchun guruhlarni olish
+      const allGroups = [];
+      for (const facultyName of facultyNames) {
+        const students = await StudentModel.find({
+          "department.name": facultyName,
+        }).select("group");
+
+        // Unique guruhlarni olish
+        const uniqueGroups = [];
+        const seen = new Set();
+
+        students.forEach((student) => {
+          if (student.group && student.group.name) {
+            const groupKey = `${student.group.name}_${student.group.id}`;
+            if (!seen.has(groupKey)) {
+              seen.add(groupKey);
+              uniqueGroups.push({
+                id: student.group.id,
+                name: student.group.name,
+                educationLang: student.group.educationLang || {
+                  name: "O'zbek",
+                },
+                faculty: facultyName,
+              });
+            }
+          }
+        });
+
+        allGroups.push(...uniqueGroups);
+      }
+
+      // Har bir guruh uchun tutor assignment statusini tekshirish
+      const groupsWithTutors = await Promise.all(
+        allGroups.map(async (group) => {
+          const existingTutor = await tutorModel.findOne({
+            "group.code": group.id.toString(),
+          });
+
+          return {
+            ...group,
+            isAssigned: !!existingTutor,
+            assignedToTutor: existingTutor
+              ? {
+                  id: existingTutor._id,
+                  name: existingTutor.name,
+                }
+              : null,
+          };
+        })
+      );
+
+      res.json({
+        status: "success",
+        data: groupsWithTutors,
+      });
+    } catch (error) {
+      res.status(500).json({
+        status: "error",
+        message: error.message,
+      });
+    }
+  }
+);
+
 // Fakultet admin yaratish (faqat main admin)
 router.post("/faculty-admin/create", authMiddleware, async (req, res) => {
   try {
