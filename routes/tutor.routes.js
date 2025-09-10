@@ -12,6 +12,7 @@ import { fileURLToPath } from "url";
 import NotificationModel from "../models/notification.model.js";
 import { uploadSingleImage } from "../middlewares/upload.middleware.js";
 import tutorNotificationModel from "../models/tutorNotification.model.js";
+import facultyAdminModel from "../models/faculty.admin.model.js";
 
 const router = express.Router();
 
