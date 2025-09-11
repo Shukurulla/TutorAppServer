@@ -40,12 +40,10 @@ router.post(
       const findPermission = await permissionModel.findById(permission);
 
       if (!findPermission) {
-        return res
-          .status(400)
-          .json({
-            status: "error",
-            message: "Permission malumotlari topilmadi",
-          });
+        return res.status(400).json({
+          status: "error",
+          message: "Permission malumotlari topilmadi",
+        });
       }
 
       if (findPermission.status == "finished") {
@@ -146,6 +144,16 @@ router.post(
           _id: appartment._id,
           permission: appartment.appartment,
         };
+
+        await NotificationModel.deleteMany({ userId: studentId });
+        await NotificationModel.create({
+          userId: studentId,
+          notification_type: "report",
+          message: "Tekshirilmoqda",
+          status: "blue",
+          appartmentId: appartment._id,
+        });
+
         return res
           .status(200)
           .json({ status: "success", data: filterAppartment });
@@ -181,6 +189,16 @@ router.post(
           permission: appartment.permission,
           updatedAt: appartment.updatedAt,
         };
+
+        await NotificationModel.deleteMany({ userId: studentId });
+        await NotificationModel.create({
+          userId: studentId,
+          notification_type: "report",
+          message: "Tekshirilmoqda",
+          status: "blue",
+          appartmentId: appartment._id,
+        });
+
         return res.status(201).json({
           status: "success",
           message: "Ijara ma'lumotlari muvaffaqiyatli yaratildi",
