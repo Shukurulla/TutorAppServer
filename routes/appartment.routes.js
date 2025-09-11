@@ -310,7 +310,9 @@ router.post("/appartment/check", authMiddleware, async (req, res) => {
 
     await NotificationModel.deleteMany({
       appartmentId,
+      userId: findAppartment.studentId,
       status: "blue",
+      permission: findAppartment.permission,
       notification_type: "report",
     });
 
