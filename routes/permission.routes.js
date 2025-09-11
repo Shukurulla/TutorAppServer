@@ -244,7 +244,7 @@ router.post("/special", authMiddleware, async (req, res) => {
 
       const findAppartment = await AppartmentModel.findOne({
         permission: st.permissionId,
-        studentId: st._id,
+        studentId: st.studentId,
         status: "Being checked",
       });
 
