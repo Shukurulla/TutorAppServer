@@ -9,6 +9,7 @@ import tutorModel from "../models/tutor.model.js";
 import { uploadMultipleImages } from "../middlewares/upload.middleware.js";
 import NotificationModel from "../models/notification.model.js";
 import mongoose from "mongoose";
+import permissionModel from "../models/permission.model.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,7 +22,7 @@ router.post(
   uploadMultipleImages,
   async (req, res) => {
     try {
-      const { studentId, typeAppartment } = req.body;
+      const { studentId, typeAppartment, permission } = req.body;
 
       // Studentning current appartmenti bor-yo'qligini tekshirish
       const currentAppartment = await AppartmentModel.findOne({
@@ -29,6 +30,29 @@ router.post(
         current: true,
         needNew: false,
       });
+
+      if (!permission) {
+        return res
+          .status(400)
+          .json({ status: "error", message: "Permission _id kiritilmagan" });
+      }
+
+      const findPermission = await permissionModel.findById(permission);
+
+      if (!findPermission) {
+        return res
+          .status(400)
+          .json({
+            status: "error",
+            message: "Permission malumotlari topilmadi",
+          });
+      }
+
+      if (findPermission.status == "finished") {
+        return res
+          .status(400)
+          .json({ status: "error", message: "Bu xabarnoma muddati tugagan" });
+      }
 
       if (currentAppartment) {
         return res.status(401).json({

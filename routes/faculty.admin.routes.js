@@ -296,7 +296,8 @@ router.post("/tutor-create", authMiddleware, async (req, res) => {
         }
 
         // Image path
-        let imagePath = "/public/images/default-tutor.png";
+        let imagePath =
+          "https://static.vecteezy.com/system/resources/thumbnails/024/983/914/small/simple-user-default-icon-free-png.png";
         if (req.file) {
           imagePath = `/public/images/${req.file.filename}`;
         }
