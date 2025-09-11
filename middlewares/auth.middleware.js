@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import adminModel from "../models/admin.model.js";
 import facultyAdminModel from "../models/faculty.admin.model.js";
 import tutorModel from "../models/tutor.model.js";
+import StudentModel from "../models/student.model.js";
 
 const authMiddleware = async (req, res, next) => {
   try {
@@ -53,6 +54,13 @@ const authMiddleware = async (req, res, next) => {
       req.userData = {
         userId: tutor._id,
         role: "tutor",
+      };
+      return next();
+    }
+    const student = await StudentModel.findById(decoded.userId);
+    if (student) {
+      req.userData = {
+        userId: student._id,
       };
       return next();
     }
