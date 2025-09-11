@@ -29,6 +29,7 @@ router.post(
         studentId,
         current: true,
         needNew: false,
+        permission,
       });
 
       if (!permission) {
