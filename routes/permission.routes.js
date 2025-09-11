@@ -248,6 +248,8 @@ router.post("/special", authMiddleware, async (req, res) => {
         status: "Being checked",
       });
 
+      console.log(findAppartment);
+
       if (findAppartment) {
         return res.status(400).json({
           status: "error",
