@@ -55,21 +55,53 @@ router.get("/statistics/students/gender", authMiddleware, async (req, res) => {
   }
 });
 
+// routes/statistics.routes.js - appartments/map endpoint yangilash
 router.get("/statistics/appartments/map", authMiddleware, async (req, res) => {
   try {
-    console.log("Map endpoint called - fetching all apartments");
+    const { userId, role } = req.userData;
+    console.log("Map endpoint called - role:", role);
 
-    // Barcha appartmentlarni olish (Being checked bo'lmaganlarini)
-    const allAppartments = await AppartmentModel.find({
+    let query = {
       status: { $ne: "Being checked" },
       location: { $exists: true },
       "location.lat": { $exists: true, $ne: null, $ne: "" },
       "location.long": { $exists: true, $ne: null, $ne: "" },
-    })
+    };
+
+    // Faculty admin uchun faqat o'z fakulteti studentlari
+    if (role === "facultyAdmin") {
+      const facultyAdmin = await facultyAdminModel.findById(userId);
+      if (!facultyAdmin) {
+        return res.status(404).json({
+          status: "error",
+          message: "Fakultet admin topilmadi",
+        });
+      }
+
+      const facultyNames = facultyAdmin.faculties.map((f) => f.name);
+
+      // Faculty admin fakultetlaridagi studentlarni olish
+      const students = await StudentModel.find({
+        "department.name": { $in: facultyNames },
+      }).select("_id");
+
+      const studentIds = students.map((s) => s._id);
+      query.studentId = { $in: studentIds };
+
+      console.log(
+        `Faculty admin: ${facultyNames.join(", ")} - ${
+          studentIds.length
+        } students`
+      );
+    }
+
+    const allAppartments = await AppartmentModel.find(query)
       .select("location status _id studentId createdAt")
       .sort({ createdAt: -1 });
 
-    console.log(`Found ${allAppartments.length} valid apartments`);
+    console.log(
+      `Found ${allAppartments.length} valid apartments for role: ${role}`
+    );
 
     // Har bir student uchun eng oxirgi appartmentni olish
     const studentMap = new Map();
@@ -80,7 +112,6 @@ router.get("/statistics/appartments/map", authMiddleware, async (req, res) => {
       if (!studentMap.has(studentId)) {
         studentMap.set(studentId, apartment);
       } else {
-        // Agar oldingi apartment yangi bo'lsa, uni almashtirish
         const existing = studentMap.get(studentId);
         if (new Date(apartment.createdAt) > new Date(existing.createdAt)) {
           studentMap.set(studentId, apartment);
@@ -91,7 +122,6 @@ router.get("/statistics/appartments/map", authMiddleware, async (req, res) => {
     const latestAppartments = Array.from(studentMap.values());
     console.log(`Final apartments for map: ${latestAppartments.length}`);
 
-    // Ma'lumotlarni formatlash
     const formattedData = latestAppartments.map((apt) => ({
       _id: apt._id,
       studentId: apt.studentId,
@@ -113,7 +143,6 @@ router.get("/statistics/appartments/map", authMiddleware, async (req, res) => {
     res.status(500).json({
       status: "error",
       message: error.message,
-      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
     });
   }
 });
