@@ -40,6 +40,15 @@ router.post("/permission-create", authMiddleware, async (req, res) => {
           "group.id": `${group.code}`,
         }).select("_id");
 
+        const studentIds = students.map((st) => st._id);
+
+        await NotificationModel.deleteMany({
+          notification_type: "report",
+          status: "red",
+          userId: { $in: studentIds },
+          message: "Ijara ma'lumotlarini qayta jo'nating",
+        });
+
         if (students.length === 0) return [];
 
         return students.map((student) => ({
