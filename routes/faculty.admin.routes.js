@@ -1,4 +1,4 @@
-// routes/faculty.admin.routes.js
+// routes/faculty.admin.routes.js - Tuzatilgan versiya
 import express from "express";
 import facultyAdminModel from "../models/faculty.admin.model.js";
 import authMiddleware from "../middlewares/auth.middleware.js";
@@ -222,18 +222,28 @@ router.get("/groups-with-tutors", authMiddleware, async (req, res) => {
   }
 });
 
-// Tutor yaratish - JSON va FormData uchun
+// Tutor yaratish - FormData va JSON handler
 router.post("/tutor-create", authMiddleware, async (req, res) => {
   try {
-    console.log("📡 Create tutor request received");
-    console.log("Content-Type:", req.headers["content-type"]);
+    console.log("📡 Faculty admin tutor create request");
+    console.log("Headers:", req.headers);
     console.log("Body:", req.body);
 
-    // Agar FormData bo'lsa, multer middleware ishlatamiz
-    if (
-      req.headers["content-type"] &&
-      req.headers["content-type"].includes("multipart/form-data")
-    ) {
+    const { userId } = req.userData;
+
+    // Faculty admin tekshirish
+    const findFacultyAdmin = await facultyAdminModel.findById(userId);
+    if (!findFacultyAdmin) {
+      return res.status(401).json({
+        status: "error",
+        message: "Siz fakultet admini emassiz",
+      });
+    }
+
+    // Content-Type ni tekshirish
+    const contentType = req.headers["content-type"];
+
+    if (contentType && contentType.includes("multipart/form-data")) {
       // FormData handler
       return uploadSingleImage(req, res, async (err) => {
         if (err) {
@@ -244,24 +254,14 @@ router.post("/tutor-create", authMiddleware, async (req, res) => {
           });
         }
 
-        const { userId } = req.userData;
-
-        const findFacultyAdmin = await facultyAdminModel.findById(userId);
-        if (!findFacultyAdmin) {
-          return res.status(401).json({
-            status: "error",
-            message: "Siz fakultet admini emassiz",
-          });
-        }
-
         const { login, name, phone, password, group } = req.body;
 
+        // Validation
         if (
           !login?.trim() ||
           !name?.trim() ||
           !phone?.trim() ||
-          !password?.trim() ||
-          !group
+          !password?.trim()
         ) {
           return res.status(400).json({
             status: "error",
@@ -286,7 +286,7 @@ router.post("/tutor-create", authMiddleware, async (req, res) => {
           });
         }
 
-        // Login unique ekanligini tekshirish
+        // Login unique check
         const existingTutor = await tutorModel.findOne({ login: login.trim() });
         if (existingTutor) {
           return res.status(400).json({
@@ -295,9 +295,8 @@ router.post("/tutor-create", authMiddleware, async (req, res) => {
           });
         }
 
-        // Rasm yo'lini sozlash
-        let imagePath =
-          "https://static.vecteezy.com/system/resources/thumbnails/024/983/914/small/simple-user-default-icon-free-png.png";
+        // Image path
+        let imagePath = "/public/images/default-tutor.png";
         if (req.file) {
           imagePath = `/public/images/${req.file.filename}`;
         }
@@ -306,7 +305,7 @@ router.post("/tutor-create", authMiddleware, async (req, res) => {
           login: login.trim(),
           name: name.trim(),
           phone: phone.trim(),
-          password: password.trim(), // Plain text password
+          password: password.trim(),
           group: parsedGroup,
           facultyAdmin: userId,
           image: imagePath,
@@ -320,39 +319,53 @@ router.post("/tutor-create", authMiddleware, async (req, res) => {
       });
     } else {
       // JSON handler
-      const { userId } = req.userData;
-
-      const findFacultyAdmin = await facultyAdminModel.findById(userId);
-      if (!findFacultyAdmin) {
-        return res.status(401).json({
-          status: "error",
-          message: "Siz fakultet admini emassiz",
-        });
-      }
-
       const { login, name, phone, password, group } = req.body;
 
-      if (
-        !login?.trim() ||
-        !name?.trim() ||
-        !phone?.trim() ||
-        !password?.trim() ||
-        !group
-      ) {
+      console.log("Processing JSON data:", {
+        login,
+        name,
+        phone,
+        password,
+        group,
+      });
+
+      // Validation - har bir maydonni alohida tekshirish
+      if (!login?.trim()) {
         return res.status(400).json({
           status: "error",
-          message: "Iltimos, barcha majburiy maydonlarni to'liq kiriting",
+          message: "Login maydoni bo'sh bo'lmasligi kerak",
         });
       }
 
-      if (!Array.isArray(group) || group.length === 0) {
+      if (!name?.trim()) {
+        return res.status(400).json({
+          status: "error",
+          message: "Ism maydoni bo'sh bo'lmasligi kerak",
+        });
+      }
+
+      if (!phone?.trim()) {
+        return res.status(400).json({
+          status: "error",
+          message: "Telefon raqami bo'sh bo'lmasligi kerak",
+        });
+      }
+
+      if (!password?.trim()) {
+        return res.status(400).json({
+          status: "error",
+          message: "Parol maydoni bo'sh bo'lmasligi kerak",
+        });
+      }
+
+      if (!group || !Array.isArray(group) || group.length === 0) {
         return res.status(400).json({
           status: "error",
           message: "Iltimos, tutorga kamida bitta guruh biriktiring",
         });
       }
 
-      // Login unique ekanligini tekshirish
+      // Login unique check
       const existingTutor = await tutorModel.findOne({ login: login.trim() });
       if (existingTutor) {
         return res.status(400).json({
@@ -361,16 +374,27 @@ router.post("/tutor-create", authMiddleware, async (req, res) => {
         });
       }
 
+      console.log("Creating tutor with data:", {
+        login: login.trim(),
+        name: name.trim(),
+        phone: phone.trim(),
+        password: password.trim(),
+        group,
+        facultyAdmin: userId,
+      });
+
       const tutor = await tutorModel.create({
         login: login.trim(),
         name: name.trim(),
         phone: phone.trim(),
-        password: password.trim(), // Plain text password
+        password: password.trim(),
         group: group,
         facultyAdmin: userId,
         image:
           "https://static.vecteezy.com/system/resources/thumbnails/024/983/914/small/simple-user-default-icon-free-png.png",
       });
+
+      console.log("Tutor created successfully:", tutor._id);
 
       res.status(200).json({
         status: "success",
@@ -542,6 +566,7 @@ router.get("/profile", authMiddleware, async (req, res) => {
   }
 });
 
+// Guruh qo'shish endpoint - URL ni to'g'irlash
 router.post("/add-groups", authMiddleware, async (req, res) => {
   try {
     console.log("📡 /faculty-admin/add-groups endpoint called");
@@ -570,7 +595,7 @@ router.post("/add-groups", authMiddleware, async (req, res) => {
     console.log("✅ Tutor found:", tutor.name);
 
     // Yangi guruhlarni qo'shish
-    const existingGroupCodes = tutor.group.map((g) => g.code);
+    const existingGroupCodes = tutor.group.map((g) => g.code || g.id);
     const newGroups = groups.filter(
       (g) => !existingGroupCodes.includes(g.code)
     );
