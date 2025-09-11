@@ -59,6 +59,16 @@ router.post(
         });
       }
 
+      const redNotificaiton = await NotificationModel.findOne({
+        status: "red",
+        notification_type: "report",
+        permission,
+        userId: studentId,
+      });
+      if (redNotificaiton) {
+        await AppartmentModel.findOneAndDelete({ permission, studentId });
+      }
+
       if (typeAppartment == "tenant") {
         if (
           !req.files ||
