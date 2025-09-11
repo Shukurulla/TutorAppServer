@@ -146,7 +146,18 @@ router.post(
           permission: appartment.appartment,
         };
 
-        await NotificationModel.deleteMany({ userId: studentId });
+        await NotificationModel.deleteMany({
+          userId: studentId,
+          status: "Being checked",
+        });
+        await NotificationModel.deleteMany({
+          userId: studentId,
+          status: "red",
+        });
+        await NotificationModel.deleteMany({
+          userId: studentId,
+          status: "yellow",
+        });
         await NotificationModel.create({
           userId: studentId,
           notification_type: "report",
