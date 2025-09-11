@@ -246,14 +246,12 @@ router.post("/special", authMiddleware, async (req, res) => {
         permission: st.permissionId,
         studentId: st._id,
         status: "Being checked",
-      }).select("status ");
-
-      const currentStudent = await StudentModel.findById(st._id);
+      });
 
       if (findAppartment) {
         return res.status(400).json({
           status: "error",
-          message: `${currentStudent.first_name} ning ijara malumotlari korib chiqilmagan. Iltimos ijara malumotlarini tekshirgan xolda qayta malumot jonatishni talab qiling!!`,
+          message: `Iltimos ijara malumotlarini tekshirgan xolda qayta malumot jonatishni talab qiling!!`,
         });
       }
 
