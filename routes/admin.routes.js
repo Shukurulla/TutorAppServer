@@ -390,6 +390,7 @@ router.put("/admin/faculty-admin/:id", authMiddleware, async (req, res) => {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
+
 // Fakultetni fakultet admindan o'chirish
 router.delete("/admin/remove-faculty", authMiddleware, async (req, res) => {
   try {

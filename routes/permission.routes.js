@@ -20,6 +20,20 @@ router.post("/permission-create", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "Bunday tutor topilmadi" });
     }
 
+    const findActivePermission = await permissionModel.findOne({
+      tutorId: userId,
+      status: process,
+    });
+
+    if (findActivePermission) {
+      return res
+        .status(400)
+        .json({
+          status: "error",
+          message: "Sizning oxirgi ruxsatnomangiz tugatilmagan",
+        });
+    }
+
     // Permission yaratish
     const permission = await permissionModel.create({ tutorId: userId });
 
