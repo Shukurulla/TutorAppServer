@@ -217,7 +217,7 @@ router.post("/tutor/login", async (req, res) => {
     });
 
     // Parolni tekshirish
-    const compare = await bcrypt.compare(password, findTutor.password);
+    const compare = password == findTutor.password ? true : false;
     if (!compare) {
       return res
         .status(400)
