@@ -308,7 +308,11 @@ router.post("/appartment/check", authMiddleware, async (req, res) => {
       },
     });
 
-    await NotificationModel.deleteMany({ appartmentId, status: "blue" });
+    await NotificationModel.deleteMany({
+      appartmentId,
+      status: "blue",
+      notification_type: "report",
+    });
 
     const checkedAppartment = await AppartmentModel.findById(appartmentId);
     res.status(200).json({ status: "success", data: checkedAppartment });
