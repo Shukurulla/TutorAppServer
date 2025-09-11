@@ -238,7 +238,24 @@ router.post("/special", authMiddleware, async (req, res) => {
       if (findRedNotification) {
         return res.status(400).json({
           status: "error",
-          message: `Student ${st.studentId} uchun avval yuborilgan xabarnoma hali to‘ldirilmagan`,
+          message: `Tanlangan studentlar orasida xabarnoma avval yuborilgan lekin hali to‘ldirilmagan`,
+        });
+      }
+
+      const findAppartment = await AppartmentModel.findOne({
+        permission: st.permissionId,
+        studentId: st._id,
+        status: "Being checked",
+      }).select("status ");
+
+      const currentStudent = await StudentModel.findById(st._id).select(
+        "first_name"
+      );
+
+      if (!findAppartment) {
+        return res.status(400).json({
+          status: "error",
+          message: `${currentStudent.first_name} ning ijara malumotlari korib chiqilmagan. Iltimos ijara malumotlarini tekshirgan xolda qayta malumot jonatishni talab qiling!!`,
         });
       }
 
