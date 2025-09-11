@@ -7,6 +7,12 @@ import StudentModel from "../models/student.model.js";
 import bcrypt from "bcrypt";
 import AppartmentModel from "../models/appartment.model.js";
 import { uploadSingleImage } from "../middlewares/upload.middleware.js";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
@@ -216,12 +222,104 @@ router.get("/groups-with-tutors", authMiddleware, async (req, res) => {
   }
 });
 
-router.post(
-  "/faculty-admin/tutor-create",
-  authMiddleware,
-  uploadSingleImage,
-  async (req, res) => {
-    try {
+// Tutor yaratish - JSON va FormData uchun
+router.post("/tutor-create", authMiddleware, async (req, res) => {
+  try {
+    console.log("📡 Create tutor request received");
+    console.log("Content-Type:", req.headers["content-type"]);
+    console.log("Body:", req.body);
+
+    // Agar FormData bo'lsa, multer middleware ishlatamiz
+    if (
+      req.headers["content-type"] &&
+      req.headers["content-type"].includes("multipart/form-data")
+    ) {
+      // FormData handler
+      return uploadSingleImage(req, res, async (err) => {
+        if (err) {
+          console.error("Multer error:", err);
+          return res.status(400).json({
+            status: "error",
+            message: "Fayl yuklashda xatolik",
+          });
+        }
+
+        const { userId } = req.userData;
+
+        const findFacultyAdmin = await facultyAdminModel.findById(userId);
+        if (!findFacultyAdmin) {
+          return res.status(401).json({
+            status: "error",
+            message: "Siz fakultet admini emassiz",
+          });
+        }
+
+        const { login, name, phone, password, group } = req.body;
+
+        if (
+          !login?.trim() ||
+          !name?.trim() ||
+          !phone?.trim() ||
+          !password?.trim() ||
+          !group
+        ) {
+          return res.status(400).json({
+            status: "error",
+            message: "Iltimos, barcha majburiy maydonlarni to'liq kiriting",
+          });
+        }
+
+        let parsedGroup;
+        try {
+          parsedGroup = typeof group === "string" ? JSON.parse(group) : group;
+        } catch (error) {
+          return res.status(400).json({
+            status: "error",
+            message: "Guruh ma'lumotlarida xatolik",
+          });
+        }
+
+        if (!Array.isArray(parsedGroup) || parsedGroup.length === 0) {
+          return res.status(400).json({
+            status: "error",
+            message: "Iltimos, tutorga kamida bitta guruh biriktiring",
+          });
+        }
+
+        // Login unique ekanligini tekshirish
+        const existingTutor = await tutorModel.findOne({ login: login.trim() });
+        if (existingTutor) {
+          return res.status(400).json({
+            status: "error",
+            message: "Bu login allaqachon ishlatilgan",
+          });
+        }
+
+        // Rasm yo'lini sozlash
+        let imagePath =
+          "https://static.vecteezy.com/system/resources/thumbnails/024/983/914/small/simple-user-default-icon-free-png.png";
+        if (req.file) {
+          imagePath = `/public/images/${req.file.filename}`;
+        }
+
+        const tutor = await tutorModel.create({
+          login: login.trim(),
+          name: name.trim(),
+          phone: phone.trim(),
+          password: password.trim(), // Plain text password
+          group: parsedGroup,
+          facultyAdmin: userId,
+          image: imagePath,
+        });
+
+        res.status(200).json({
+          status: "success",
+          message: "Tutor muvaffaqiyatli yaratildi",
+          data: tutor,
+        });
+      });
+    } else {
+      // JSON handler
       const { userId } = req.userData;
 
       const findFacultyAdmin = await facultyAdminModel.findById(userId);
@@ -247,17 +345,7 @@ router.post(
         });
       }
 
-      let parsedGroup;
-      try {
-        parsedGroup = typeof group === "string" ? JSON.parse(group) : group;
-      } catch (error) {
-        return res.status(400).json({
-          status: "error",
-          message: "Guruh ma'lumotlarida xatolik",
-        });
-      }
-
-      if (!Array.isArray(parsedGroup) || parsedGroup.length === 0) {
+      if (!Array.isArray(group) || group.length === 0) {
         return res.status(400).json({
           status: "error",
           message: "Iltimos, tutorga kamida bitta guruh biriktiring",
@@ -273,21 +361,15 @@ router.post(
         });
       }
 
-      // Password hash qilinmaydi - plain text sifatida saqlanadi
-      let imagePath =
-        "https://static.vecteezy.com/system/resources/thumbnails/024/983/914/small/simple-user-default-icon-free-png.png";
-      if (req.file) {
-        imagePath = `/public/images/${req.file.filename}`;
-      }
-
       const tutor = await tutorModel.create({
         login: login.trim(),
         name: name.trim(),
         phone: phone.trim(),
         password: password.trim(), // Plain text password
-        group: parsedGroup,
+        group: group,
         facultyAdmin: userId,
-        image: imagePath,
+        image:
+          "https://static.vecteezy.com/system/resources/thumbnails/024/983/914/small/simple-user-default-icon-free-png.png",
       });
 
       res.status(200).json({
@@ -295,11 +377,91 @@ router.post(
         message: "Tutor muvaffaqiyatli yaratildi",
         data: tutor,
       });
+    }
+  } catch (error) {
+    console.error("Faculty admin tutor create error:", error);
+    res.status(500).json({
+      status: "error",
+      message: "Serverda xatolik yuz berdi: " + error.message,
+    });
+  }
+});
+
+// Tutor yangilash - rasm bilan
+router.put(
+  "/tutor/:id",
+  authMiddleware,
+  uploadSingleImage,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, login, phone, password } = req.body;
+
+      const findTutor = await tutorModel.findById(id);
+      if (!findTutor) {
+        return res.status(400).json({
+          status: "error",
+          message: "Bunday tutor topilmadi",
+        });
+      }
+
+      // Login unique ekanligini tekshirish
+      if (login && login !== findTutor.login) {
+        const existingTutor = await tutorModel.findOne({
+          login,
+          _id: { $ne: id },
+        });
+
+        if (existingTutor) {
+          return res.status(400).json({
+            status: "error",
+            message: "Bu login allaqachon ishlatilgan",
+          });
+        }
+      }
+
+      const updateFields = {};
+      if (name) updateFields.name = name;
+      if (login) updateFields.login = login;
+      if (phone) updateFields.phone = phone;
+      if (password && password.trim()) updateFields.password = password.trim(); // Plain text
+
+      // Image yangilash
+      if (req.file) {
+        // Eski rasmni o'chirish (default bo'lmasa)
+        if (
+          findTutor.image &&
+          !findTutor.image.includes("default-icon") &&
+          !findTutor.image.includes("vecteezy")
+        ) {
+          try {
+            const oldPath = path.join(__dirname, "..", findTutor.image);
+            if (fs.existsSync(oldPath)) {
+              fs.unlinkSync(oldPath);
+            }
+          } catch (err) {
+            console.log("Eski rasmni o'chirishda xatolik:", err.message);
+          }
+        }
+        updateFields.image = `/public/images/${req.file.filename}`;
+      }
+
+      const updatedTutor = await tutorModel.findByIdAndUpdate(
+        id,
+        { $set: updateFields },
+        { new: true }
+      );
+
+      res.status(200).json({
+        status: "success",
+        message: "Tutor muvaffaqiyatli yangilandi",
+        data: updatedTutor,
+      });
     } catch (error) {
-      console.error("Faculty admin tutor create error:", error);
+      console.error("Update tutor error:", error);
       res.status(500).json({
         status: "error",
-        message: "Serverda xatolik yuz berdi: " + error.message,
+        message: error.message,
       });
     }
   }
@@ -380,234 +542,7 @@ router.get("/profile", authMiddleware, async (req, res) => {
   }
 });
 
-// Fakultet admin tomonidan tutor yaratish
-router.post("/tutor-create", authMiddleware, async (req, res) => {
-  try {
-    const { userId } = req.userData;
-    const findFacultyAdmin = await facultyAdminModel.findById(userId);
-
-    if (!findFacultyAdmin) {
-      return res.status(401).json({
-        status: "error",
-        message: "Siz fakultet admini emassiz",
-      });
-    }
-
-    const { login, name, phone, password, group } = req.body;
-
-    if (
-      !login ||
-      !name ||
-      !phone ||
-      !password ||
-      !Array.isArray(group) ||
-      group.length === 0
-    ) {
-      return res.status(400).json({
-        status: "error",
-        message: "Iltimos, barcha maydonlarni to'liq kiriting",
-      });
-    }
-
-    // Login unique ekanligini tekshirish
-    const existingTutor = await tutorModel.findOne({ login });
-    if (existingTutor) {
-      return res.status(400).json({
-        status: "error",
-        message: "Bu login allaqachon ishlatilgan",
-      });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const tutor = await tutorModel.create({
-      login,
-      name,
-      phone,
-      password: hashedPassword,
-      group,
-      facultyAdmin: userId,
-    });
-
-    res.status(200).json({ status: "success", data: tutor });
-  } catch (error) {
-    res.status(500).json({ status: "error", message: error.message });
-  }
-});
-
-// routes/faculty.admin.routes.js - Tutor yaratish va yangilash
-
-// Tutor yaratish - password hash qilinmaydi
-router.post(
-  "/faculty-admin/tutor-create",
-  authMiddleware,
-  uploadSingleImage,
-  async (req, res) => {
-    try {
-      const { userId } = req.userData;
-
-      const findFacultyAdmin = await facultyAdminModel.findById(userId);
-      if (!findFacultyAdmin) {
-        return res.status(401).json({
-          status: "error",
-          message: "Siz fakultet admini emassiz",
-        });
-      }
-
-      const { login, name, phone, password, group } = req.body;
-
-      if (
-        !login?.trim() ||
-        !name?.trim() ||
-        !phone?.trim() ||
-        !password?.trim() ||
-        !group
-      ) {
-        return res.status(400).json({
-          status: "error",
-          message: "Iltimos, barcha majburiy maydonlarni to'liq kiriting",
-        });
-      }
-
-      let parsedGroup;
-      try {
-        parsedGroup = typeof group === "string" ? JSON.parse(group) : group;
-      } catch (error) {
-        return res.status(400).json({
-          status: "error",
-          message: "Guruh ma'lumotlarida xatolik",
-        });
-      }
-
-      if (!Array.isArray(parsedGroup) || parsedGroup.length === 0) {
-        return res.status(400).json({
-          status: "error",
-          message: "Iltimos, tutorga kamida bitta guruh biriktiring",
-        });
-      }
-
-      // Login unique ekanligini tekshirish
-      const existingTutor = await tutorModel.findOne({ login: login.trim() });
-      if (existingTutor) {
-        return res.status(400).json({
-          status: "error",
-          message: "Bu login allaqachon ishlatilgan",
-        });
-      }
-
-      // Password hash qilinmaydi - plain text sifatida saqlanadi
-      let imagePath =
-        "https://static.vecteezy.com/system/resources/thumbnails/024/983/914/small/simple-user-default-icon-free-png.png";
-      if (req.file) {
-        imagePath = `/public/images/${req.file.filename}`;
-      }
-
-      const tutor = await tutorModel.create({
-        login: login.trim(),
-        name: name.trim(),
-        phone: phone.trim(),
-        password: password.trim(), // Plain text password
-        group: parsedGroup,
-        facultyAdmin: userId,
-        image: imagePath,
-      });
-
-      res.status(200).json({
-        status: "success",
-        message: "Tutor muvaffaqiyatli yaratildi",
-        data: tutor,
-      });
-    } catch (error) {
-      console.error("Faculty admin tutor create error:", error);
-      res.status(500).json({
-        status: "error",
-        message: "Serverda xatolik yuz berdi: " + error.message,
-      });
-    }
-  }
-);
-
-// Tutor yangilash - password ko'rinadi va image yangilanadi
-router.put(
-  "/faculty-admin/tutor/:id",
-  authMiddleware,
-  uploadSingleImage,
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { name, login, phone, password } = req.body;
-
-      const findTutor = await tutorModel.findById(id);
-      if (!findTutor) {
-        return res.status(400).json({
-          status: "error",
-          message: "Bunday tutor topilmadi",
-        });
-      }
-
-      // Login unique ekanligini tekshirish
-      if (login && login !== findTutor.login) {
-        const existingTutor = await tutorModel.findOne({
-          login,
-          _id: { $ne: id },
-        });
-
-        if (existingTutor) {
-          return res.status(400).json({
-            status: "error",
-            message: "Bu login allaqachon ishlatilgan",
-          });
-        }
-      }
-
-      const updateFields = {};
-      if (name) updateFields.name = name;
-      if (login) updateFields.login = login;
-      if (phone) updateFields.phone = phone;
-      if (password && password.trim()) updateFields.password = password.trim(); // Plain text
-
-      // Image yangilash
-      if (req.file) {
-        // Eski rasmni o'chirish (default bo'lmasa)
-        if (
-          findTutor.image &&
-          !findTutor.image.includes("default-icon") &&
-          !findTutor.image.includes("vecteezy")
-        ) {
-          try {
-            const oldPath = path.join(__dirname, "..", findTutor.image);
-            if (fs.existsSync(oldPath)) {
-              fs.unlinkSync(oldPath);
-            }
-          } catch (err) {
-            console.log("Eski rasmni o'chirishda xatolik:", err.message);
-          }
-        }
-        updateFields.image = `/public/images/${req.file.filename}`;
-      }
-
-      const updatedTutor = await tutorModel.findByIdAndUpdate(
-        id,
-        { $set: updateFields },
-        { new: true }
-      );
-
-      res.status(200).json({
-        status: "success",
-        message: "Tutor muvaffaqiyatli yangilandi",
-        data: updatedTutor,
-      });
-    } catch (error) {
-      console.error("Update tutor error:", error);
-      res.status(500).json({
-        status: "error",
-        message: error.message,
-      });
-    }
-  }
-);
-
-router.post("/faculty-admin/add-groups", authMiddleware, async (req, res) => {
+router.post("/add-groups", authMiddleware, async (req, res) => {
   try {
     console.log("📡 /faculty-admin/add-groups endpoint called");
     console.log("Request body:", req.body);
@@ -657,15 +592,6 @@ router.post("/faculty-admin/add-groups", authMiddleware, async (req, res) => {
       { new: true }
     );
 
-    // Tutor notification yaratish
-    const groupNames = newGroups.map((g) => g.name).join(", ");
-    await tutorNotificationModel.create({
-      tutorId,
-      message: `Sizga yangi guruhlar qo'shildi: ${groupNames}`,
-      type: "group_added",
-      isRead: false,
-    });
-
     console.log("✅ Groups added successfully");
 
     res.status(200).json({
@@ -709,6 +635,7 @@ router.get("/my-tutors", authMiddleware, async (req, res) => {
     });
   }
 });
+
 // Fakultetlar ro'yxatini olish (studentlar asosida)
 router.get("/faculties", async (req, res) => {
   try {
@@ -759,84 +686,5 @@ router.get("/faculty-groups/:facultyName", async (req, res) => {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
-
-router.put(
-  "/tutor/:id",
-  authMiddleware,
-  uploadSingleImage,
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { name, login, phone, password } = req.body;
-
-      const findTutor = await tutorModel.findById(id);
-      if (!findTutor) {
-        return res.status(400).json({
-          status: "error",
-          message: "Bunday tutor topilmadi",
-        });
-      }
-
-      // Login unique ekanligini tekshirish
-      if (login && login !== findTutor.login) {
-        const existingTutor = await tutorModel.findOne({
-          login,
-          _id: { $ne: id },
-        });
-
-        if (existingTutor) {
-          return res.status(400).json({
-            status: "error",
-            message: "Bu login allaqachon ishlatilgan",
-          });
-        }
-      }
-
-      const updateFields = {};
-      if (name) updateFields.name = name;
-      if (login) updateFields.login = login;
-      if (phone) updateFields.phone = phone;
-      if (password && password.trim()) updateFields.password = password.trim(); // Plain text
-
-      // Image yangilash
-      if (req.file) {
-        // Eski rasmni o'chirish (default bo'lmasa)
-        if (
-          findTutor.image &&
-          !findTutor.image.includes("default-icon") &&
-          !findTutor.image.includes("vecteezy")
-        ) {
-          try {
-            const oldPath = path.join(__dirname, "..", findTutor.image);
-            if (fs.existsSync(oldPath)) {
-              fs.unlinkSync(oldPath);
-            }
-          } catch (err) {
-            console.log("Eski rasmni o'chirishda xatolik:", err.message);
-          }
-        }
-        updateFields.image = `/public/images/${req.file.filename}`;
-      }
-
-      const updatedTutor = await tutorModel.findByIdAndUpdate(
-        id,
-        { $set: updateFields },
-        { new: true }
-      );
-
-      res.status(200).json({
-        status: "success",
-        message: "Tutor muvaffaqiyatli yangilandi",
-        data: updatedTutor,
-      });
-    } catch (error) {
-      console.error("Update tutor error:", error);
-      res.status(500).json({
-        status: "error",
-        message: error.message,
-      });
-    }
-  }
-);
 
 export default router;

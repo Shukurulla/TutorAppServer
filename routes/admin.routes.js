@@ -6,6 +6,13 @@ import bcrypt from "bcrypt";
 import generateToken from "../utils/token.js";
 import authMiddleware from "../middlewares/auth.middleware.js";
 import tutorModel from "../models/tutor.model.js";
+import { uploadSingleImage } from "../middlewares/upload.middleware.js";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
@@ -164,6 +171,7 @@ router.get("/admin/faculty-admins", authMiddleware, async (req, res) => {
       password: admin.password, // Plain text password qaytariladi
       faculties: admin.faculties,
       role: admin.role,
+      image: admin.image,
       createdAt: admin.createdAt,
       updatedAt: admin.updatedAt,
     }));
@@ -245,42 +253,104 @@ router.post("/admin/add-faculties", authMiddleware, async (req, res) => {
   }
 });
 
-// Fakultet admin yaratish (main admin uchun)
+// Fakultet admin yaratish (main admin uchun) - JSON va FormData uchun
 router.post("/admin/create-faculty-admin", authMiddleware, async (req, res) => {
   try {
-    const { firstName, lastName, login, password, faculties } = req.body;
+    console.log("📡 Create faculty admin request received");
+    console.log("Content-Type:", req.headers["content-type"]);
+    console.log("Body:", req.body);
 
-    // Login unique ekanligini tekshirish
-    const [existingAdmin, existingFacultyAdmin] = await Promise.all([
-      adminModel.findOne({ username: login }),
-      facultyAdminModel.findOne({ login }),
-    ]);
+    // Agar FormData bo'lsa, multer middleware ishlatamiz
+    if (
+      req.headers["content-type"] &&
+      req.headers["content-type"].includes("multipart/form-data")
+    ) {
+      // FormData handler
+      return uploadSingleImage(req, res, async (err) => {
+        if (err) {
+          console.error("Multer error:", err);
+          return res.status(400).json({
+            status: "error",
+            message: "Fayl yuklashda xatolik",
+          });
+        }
 
-    if (existingAdmin || existingFacultyAdmin) {
-      return res.status(400).json({
-        status: "error",
-        message: "Bu login allaqachon ishlatilgan",
+        const { firstName, lastName, login, password, faculties } = req.body;
+
+        // Login unique ekanligini tekshirish
+        const [existingAdmin, existingFacultyAdmin] = await Promise.all([
+          adminModel.findOne({ username: login }),
+          facultyAdminModel.findOne({ login }),
+        ]);
+
+        if (existingAdmin || existingFacultyAdmin) {
+          return res.status(400).json({
+            status: "error",
+            message: "Bu login allaqachon ishlatilgan",
+          });
+        }
+
+        // Rasm yo'lini sozlash
+        let imagePath = null;
+        if (req.file) {
+          imagePath = `/public/images/${req.file.filename}`;
+        }
+
+        // Password hash qilinmaydi - plain text sifatida saqlanadi
+        const facultyAdmin = await facultyAdminModel.create({
+          firstName,
+          lastName,
+          login,
+          password, // Plain text
+          faculties:
+            typeof faculties === "string" ? JSON.parse(faculties) : faculties,
+          image: imagePath,
+        });
+
+        res.status(200).json({
+          status: "success",
+          message: "Fakultet admin muvaffaqiyatli yaratildi",
+          data: facultyAdmin,
+        });
+      });
+    } else {
+      // JSON handler
+      const { firstName, lastName, login, password, faculties } = req.body;
+
+      // Login unique ekanligini tekshirish
+      const [existingAdmin, existingFacultyAdmin] = await Promise.all([
+        adminModel.findOne({ username: login }),
+        facultyAdminModel.findOne({ login }),
+      ]);
+
+      if (existingAdmin || existingFacultyAdmin) {
+        return res.status(400).json({
+          status: "error",
+          message: "Bu login allaqachon ishlatilgan",
+        });
+      }
+
+      // Password hash qilinmaydi - plain text sifatida saqlanadi
+      const facultyAdmin = await facultyAdminModel.create({
+        firstName,
+        lastName,
+        login,
+        password, // Plain text
+        faculties,
+      });
+
+      res.status(200).json({
+        status: "success",
+        message: "Fakultet admin muvaffaqiyatli yaratildi",
+        data: facultyAdmin,
       });
     }
-
-    // Password hash qilinmaydi - plain text sifatida saqlanadi
-    const facultyAdmin = await facultyAdminModel.create({
-      firstName,
-      lastName,
-      login,
-      password, // Plain text
-      faculties,
-    });
-
-    res.status(200).json({
-      status: "success",
-      message: "Fakultet admin muvaffaqiyatli yaratildi",
-      data: facultyAdmin,
-    });
   } catch (error) {
+    console.error("Create faculty admin error:", error);
     res.status(500).json({ status: "error", message: error.message });
   }
 });
+
 // User info endpoint (role asosida)
 router.get("/admin/me", authMiddleware, async (req, res) => {
   try {
@@ -319,64 +389,91 @@ router.get("/admin/me", authMiddleware, async (req, res) => {
   }
 });
 
-router.put("/admin/faculty-admin/:id", authMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { firstName, lastName, login, password } = req.body;
+// Fakultet admin yangilash - rasm bilan
+router.put(
+  "/admin/faculty-admin/:id",
+  authMiddleware,
+  uploadSingleImage,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { firstName, lastName, login, password } = req.body;
 
-    if (!firstName || !lastName || !login) {
-      return res.status(400).json({
-        status: "error",
-        message: "Iltimos, barcha majburiy maydonlarni to'liq kiriting",
+      if (!firstName || !lastName || !login) {
+        return res.status(400).json({
+          status: "error",
+          message: "Iltimos, barcha majburiy maydonlarni to'liq kiriting",
+        });
+      }
+
+      // Login unique ekanligini tekshirish
+      const existingFacultyAdmin = await facultyAdminModel.findOne({
+        login,
+        _id: { $ne: id },
       });
-    }
 
-    // Login unique ekanligini tekshirish
-    const existingFacultyAdmin = await facultyAdminModel.findOne({
-      login,
-      _id: { $ne: id },
-    });
+      if (existingFacultyAdmin) {
+        return res.status(400).json({
+          status: "error",
+          message: "Bu login allaqachon ishlatilgan",
+        });
+      }
 
-    if (existingFacultyAdmin) {
-      return res.status(400).json({
-        status: "error",
-        message: "Bu login allaqachon ishlatilgan",
+      const findFacultyAdmin = await facultyAdminModel.findById(id);
+      if (!findFacultyAdmin) {
+        return res.status(404).json({
+          status: "error",
+          message: "Fakultet admin topilmadi",
+        });
+      }
+
+      const updateData = {
+        firstName,
+        lastName,
+        login,
+      };
+
+      // Password berilgan bo'lsa, plain text sifatida saqlash
+      if (password && password.trim()) {
+        updateData.password = password.trim();
+      }
+
+      // Image yangilash
+      if (req.file) {
+        // Eski rasmni o'chirish (default bo'lmasa)
+        if (
+          findFacultyAdmin.image &&
+          !findFacultyAdmin.image.includes("default-icon") &&
+          !findFacultyAdmin.image.includes("vecteezy")
+        ) {
+          try {
+            const oldPath = path.join(__dirname, "..", findFacultyAdmin.image);
+            if (fs.existsSync(oldPath)) {
+              fs.unlinkSync(oldPath);
+            }
+          } catch (err) {
+            console.log("Eski rasmni o'chirishda xatolik:", err.message);
+          }
+        }
+        updateData.image = `/public/images/${req.file.filename}`;
+      }
+
+      const updatedFacultyAdmin = await facultyAdminModel.findByIdAndUpdate(
+        id,
+        { $set: updateData },
+        { new: true }
+      );
+
+      res.status(200).json({
+        status: "success",
+        message: "Fakultet admin muvaffaqiyatli yangilandi",
+        data: updatedFacultyAdmin,
       });
+    } catch (error) {
+      res.status(500).json({ status: "error", message: error.message });
     }
-
-    const updateData = {
-      firstName,
-      lastName,
-      login,
-    };
-
-    // Password berilgan bo'lsa, plain text sifatida saqlash
-    if (password && password.trim()) {
-      updateData.password = password.trim();
-    }
-
-    const updatedFacultyAdmin = await facultyAdminModel.findByIdAndUpdate(
-      id,
-      { $set: updateData },
-      { new: true }
-    );
-
-    if (!updatedFacultyAdmin) {
-      return res.status(404).json({
-        status: "error",
-        message: "Fakultet admin topilmadi",
-      });
-    }
-
-    res.status(200).json({
-      status: "success",
-      message: "Fakultet admin muvaffaqiyatli yangilandi",
-      data: updatedFacultyAdmin,
-    });
-  } catch (error) {
-    res.status(500).json({ status: "error", message: error.message });
   }
-});
+);
 
 // Fakultetni fakultet admindan o'chirish
 router.delete("/admin/remove-faculty", authMiddleware, async (req, res) => {
