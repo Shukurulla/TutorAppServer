@@ -257,12 +257,10 @@ router.post("/special", authMiddleware, async (req, res) => {
 
       const findPermission = await permissionModel.findById(st.permissionId);
       if (findPermission.status == "finished") {
-        return res
-          .status(400)
-          .json({
-            status: "error",
-            message: "Bu xabarnomaning muddati tugagan",
-          });
+        return res.status(400).json({
+          status: "error",
+          message: "Bu xabarnomaning muddati tugagan",
+        });
       }
 
       await NotificationModel.create({
