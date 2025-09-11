@@ -20,17 +20,15 @@ router.post("/permission-create", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "Bunday tutor topilmadi" });
     }
 
-    const findActivePermission = await permissionModel.findOne({
-      tutorId: userId,
-      status: "process",
-    });
-
-    if (findActivePermission) {
-      return res.status(400).json({
-        status: "error",
-        message: "Sizning oxirgi ruxsatnomangiz tugatilmagan",
-      });
-    }
+    await permissionModel.updateMany(
+      {
+        tutorId: userId,
+        status: "process",
+      },
+      {
+        status: "finished",
+      }
+    );
 
     // Permission yaratish
     const permission = await permissionModel.create({ tutorId: userId });
@@ -229,6 +227,12 @@ router.post("/special", authMiddleware, async (req, res) => {
         status: "red",
         userId: st.studentId, // 🔥 oldin st._id edi, lekin create-da studentId ishlatyapsiz
         permission: st.permissionId,
+      });
+
+      await NotificationModel.deleteMany({
+        status: "blue",
+        notification_type: "report",
+        userId: st.studentId,
       });
 
       if (findRedNotification) {
