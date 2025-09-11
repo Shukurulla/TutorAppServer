@@ -1,4 +1,4 @@
-// models/faculty.admin.model.js
+// models/faculty.admin.model.js - Alternativ yechim
 import mongoose from "mongoose";
 
 const facultyAdminSchema = new mongoose.Schema(
@@ -31,7 +31,11 @@ const facultyAdminSchema = new mongoose.Schema(
     password: {
       type: String,
       required: true,
-      // Hash qilinmaydi chunki sizning talabingiz bo'yicha
+    },
+    image: {
+      type: String,
+      default:
+        "https://static.vecteezy.com/system/resources/thumbnails/024/983/914/small/simple-user-default-icon-free-png.png",
     },
     role: {
       type: String,
@@ -44,4 +48,8 @@ const facultyAdminSchema = new mongoose.Schema(
   }
 );
 
-export default mongoose.model("facultyAdmin", facultyAdminSchema);
+// Modelni tekshirish va export qilish
+const modelName = "facultyAdmin";
+
+export default mongoose.models[modelName] ||
+  mongoose.model(modelName, facultyAdminSchema);
