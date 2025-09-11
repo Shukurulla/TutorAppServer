@@ -250,7 +250,7 @@ router.post("/special", authMiddleware, async (req, res) => {
 
       const currentStudent = await StudentModel.findById(st._id);
 
-      if (!findAppartment) {
+      if (findAppartment) {
         return res.status(400).json({
           status: "error",
           message: `${currentStudent.first_name} ning ijara malumotlari korib chiqilmagan. Iltimos ijara malumotlarini tekshirgan xolda qayta malumot jonatishni talab qiling!!`,
