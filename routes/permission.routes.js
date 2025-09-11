@@ -248,9 +248,7 @@ router.post("/special", authMiddleware, async (req, res) => {
         status: "Being checked",
       }).select("status ");
 
-      const currentStudent = await StudentModel.findById(st._id).select(
-        "first_name"
-      );
+      const currentStudent = await StudentModel.findById(st._id);
 
       if (!findAppartment) {
         return res.status(400).json({
