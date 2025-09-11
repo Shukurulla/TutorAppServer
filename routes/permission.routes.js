@@ -22,16 +22,14 @@ router.post("/permission-create", authMiddleware, async (req, res) => {
 
     const findActivePermission = await permissionModel.findOne({
       tutorId: userId,
-      status: process,
+      status: "process",
     });
 
     if (findActivePermission) {
-      return res
-        .status(400)
-        .json({
-          status: "error",
-          message: "Sizning oxirgi ruxsatnomangiz tugatilmagan",
-        });
+      return res.status(400).json({
+        status: "error",
+        message: "Sizning oxirgi ruxsatnomangiz tugatilmagan",
+      });
     }
 
     // Permission yaratish
