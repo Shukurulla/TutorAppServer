@@ -250,19 +250,6 @@ router.post("/admin/create-faculty-admin", authMiddleware, async (req, res) => {
   try {
     const { firstName, lastName, login, password, faculties } = req.body;
 
-    if (
-      !firstName ||
-      !lastName ||
-      !login ||
-      !password ||
-      !Array.isArray(faculties)
-    ) {
-      return res.status(400).json({
-        status: "error",
-        message: "Iltimos, barcha maydonlarni to'liq kiriting",
-      });
-    }
-
     // Login unique ekanligini tekshirish
     const [existingAdmin, existingFacultyAdmin] = await Promise.all([
       adminModel.findOne({ username: login }),
