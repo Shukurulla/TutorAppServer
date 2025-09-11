@@ -248,13 +248,21 @@ router.post("/special", authMiddleware, async (req, res) => {
         status: "Being checked",
       });
 
-      console.log(findAppartment);
-
       if (findAppartment) {
         return res.status(400).json({
           status: "error",
           message: `Iltimos ijara malumotlarini tekshirgan xolda qayta malumot jonatishni talab qiling!!`,
         });
+      }
+
+      const findPermission = await permissionModel.findById(st.permissionId);
+      if (findPermission.status == "finished") {
+        return res
+          .status(400)
+          .json({
+            status: "error",
+            message: "Bu xabarnomaning muddati tugagan",
+          });
       }
 
       await NotificationModel.create({
