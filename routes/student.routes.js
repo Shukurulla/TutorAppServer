@@ -42,6 +42,7 @@ router.post("/student/sign", async (req, res) => {
         headers: { "Content-Type": "application/json" },
       }
     );
+    console.log(loginResp);
 
     // HEMIS dan olingan token (strukturani tekshirib olamiz)
     hemisToken = loginResp.data?.data?.token || loginResp.data?.token || null;
