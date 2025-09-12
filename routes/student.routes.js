@@ -29,7 +29,7 @@ router.post("/student/sign", async (req, res) => {
     });
   }
 
-  // HEMIS login — agar xato bo'lsa 401 qaytiramiz
+  // 🔐 HEMIS login
   let tokenData;
   try {
     const { data } = await axios.post(
@@ -40,7 +40,7 @@ router.post("/student/sign", async (req, res) => {
         headers: { "Content-Type": "application/json" },
       }
     );
-    tokenData = data; // axios response.data
+    tokenData = data;
   } catch (err) {
     return res.status(401).json({
       status: "error",
@@ -48,16 +48,13 @@ router.post("/student/sign", async (req, res) => {
     });
   }
 
-  // HEMIS account ma'lumotini olish
+  // 🔎 HEMIS account
   let account;
   try {
-    const response = await axios.get(
-      `${process.env.HEMIS_API_URL}/account/me`,
-      {
-        headers: { Authorization: `Bearer ${tokenData.data.token}` },
-        timeout: 5000,
-      }
-    );
+    const response = await axios.get(`${process.env.HEMIS_API_URL}/account/me`, {
+      headers: { Authorization: `Bearer ${tokenData.data.token}` },
+      timeout: 5000,
+    });
     account = response.data;
   } catch (err) {
     return res.status(500).json({
@@ -74,37 +71,82 @@ router.post("/student/sign", async (req, res) => {
   }
 
   try {
-    // Endi — **bazani yangilash yoki yaratish yo'q**.
-    // Faqat local bazadagi studentni topib qaytaramiz.
+    // Studentni local bazadan olish
     const findStudent = await StudentModel.findOne({
       student_id_number: account.data.student_id_number,
     }).lean();
 
     if (!findStudent) {
-      // HEMIS login to'g'ri bo'lsa ham local bazada student bo'lmasa - 404
       return res.status(404).json({
         status: "error",
         message:
           "HEMIS login/parol to'g'ri, ammo local bazada bunday student topilmadi.",
-        hemisData: account.data, // ixtiyoriy: kerak bo'lsa yuborish mumkin
       });
     }
 
-    // Appartmentni tekshiramiz (student mavjud bo'lgach)
+    // Yotoqxona bor-yo‘qligini tekshirish
     const existAppartment = await AppartmentModel.findOne({
       studentId: findStudent._id,
     }).lean();
 
     const token = generateToken(findStudent._id);
 
+    // 🔑 faqat kerakli fieldlarni qaytaramiz
+    const filteredStudent = {
+      _id: findStudent._id,
+      id: findStudent.id,
+      university: findStudent.university,
+      full_name: findStudent.full_name,
+      short_name: findStudent.short_name,
+      first_name: findStudent.first_name,
+      second_name: findStudent.second_name,
+      third_name: findStudent.third_name,
+      gender: findStudent.gender,
+      birth_date: findStudent.birth_date,
+      student_id_number: findStudent.student_id_number,
+      image: findStudent.image,
+      avg_gpa: findStudent.avg_gpa,
+      avg_grade: findStudent.avg_grade,
+      total_credit: findStudent.total_credit,
+      country: findStudent.country,
+      province: findStudent.province,
+      currentProvince: findStudent.currentProvince,
+      district: findStudent.district,
+      currentDistrict: findStudent.currentDistrict,
+      terrain: findStudent.terrain,
+      currentTerrain: findStudent.currentTerrain,
+      citizenship: findStudent.citizenship,
+      studentStatus: findStudent.studentStatus,
+      _curriculum: findStudent._curriculum,
+      educationForm: findStudent.educationForm,
+      educationType: findStudent.educationType,
+      paymentForm: findStudent.paymentForm,
+      studentType: findStudent.studentType,
+      socialCategory: findStudent.socialCategory,
+      accommodation: findStudent.accommodation,
+      department: findStudent.department,
+      specialty: findStudent.specialty,
+      group: findStudent.group,
+      level: findStudent.level,
+      semester: findStudent.semester,
+      educationYear: findStudent.educationYear,
+      year_of_enter: findStudent.year_of_enter,
+      roommate_count: findStudent.roommate_count,
+      is_graduate: findStudent.is_graduate,
+      total_acload: findStudent.total_acload,
+      other: findStudent.other,
+      created_at: findStudent.created_at,
+      updated_at: findStudent.updated_at,
+      hash: findStudent.hash,
+      validateUrl: findStudent.validateUrl,
+      __v: findStudent.__v,
+      existAppartment: !!existAppartment,
+    };
+
     return res.status(200).json({
       status: "success",
-      message: "Student muvaffaqiyatli autentifikatsiyadan o'tdi",
-      student: {
-        ...findStudent,
-        existAppartment: !!existAppartment,
-      },
-      hemisData: account.data,
+      student: filteredStudent,
+      hemisData: null,
       token,
     });
   } catch (error) {
@@ -115,6 +157,7 @@ router.post("/student/sign", async (req, res) => {
     });
   }
 });
+
 
 // Appartment mavjudligini tekshirish
 router.get("/student/existAppartment", authMiddleware, async (req, res) => {
