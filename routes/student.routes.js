@@ -19,6 +19,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Student ma'lumotlarini tozalash va formatlash funksiyasi
+
 router.post("/student/sign", async (req, res) => {
   const { login, password } = req.body;
   if (!login || !password) {
@@ -31,7 +32,7 @@ router.post("/student/sign", async (req, res) => {
   let hemisToken = null;
   let hemisAccount = null;
 
-  // 1️⃣ HEMIS login
+  // 1) HEMIS ga login yuboramiz — agar 200 kelsa davom etamiz.
   try {
     const loginResp = await axios.post(
       `${process.env.HEMIS_API_URL}/auth/login`,
@@ -42,98 +43,48 @@ router.post("/student/sign", async (req, res) => {
       }
     );
 
-    hemisToken = loginResp.data?.data?.token || null;
+    // HEMIS dan olingan token (strukturani tekshirib olamiz)
+    hemisToken = loginResp.data?.data?.token || loginResp.data?.token || null;
+
     if (!hemisToken) {
+      // Token topilmadi — treat as error
       return res.status(500).json({
         status: "error",
         message: "HEMIS dan token olinmadi",
       });
     }
   } catch (err) {
-    if (err.response && [401, 403].includes(err.response.status)) {
+    // Agar HEMIS aniq 401/403 qaytarsa — bu noto'g'ri credential, mahalliy fallback YOLG'ON bo'lmasin
+    if (
+      err.response &&
+      (err.response.status === 401 || err.response.status === 403)
+    ) {
       return res.status(401).json({
         status: "error",
-        message: "Login yoki parol noto‘g‘ri (HEMIS).",
+        message: "Login yoki parol noto'g'ri (HEMIS).",
       });
     }
 
-    // faqat HEMIS ishlamay qolsa fallback
-    console.warn("HEMIS login failed, fallback:", err.message || err);
+    // Agar HEMIS server-day error (5xx) yoki network/timeout bo'lsa — fallbackga ruxsat
+    // (agar siz **hech qachon** fallbackni xohlamasangiz, bu branchni o'zgartiring)
+    console.warn(
+      "HEMIS login failed but allowed fallback:",
+      err.message || err
+    );
+    hemisToken = null; // belgilab qo'yamiz, keyingi qadam fallbackga qarab harakat qiladi
   }
 
-  let finalStudent;
-  try {
-    if (hemisToken) {
-      // 2️⃣ HEMIS account olish
-      const accountResp = await axios.get(
-        `${process.env.HEMIS_API_URL}/account/me`,
-        {
-          headers: { Authorization: `Bearer ${hemisToken}` },
-          timeout: 5000,
-        }
-      );
-      hemisAccount = accountResp.data?.data;
-
-      if (!hemisAccount) {
-        return res.status(500).json({
-          status: "error",
-          message: "HEMIS account ma'lumotlari kelmadi",
-        });
-      }
-
-      // 3️⃣ Studentni bazada yangilash/yaratish
-      const existStudent = await StudentModel.findOne({
-        student_id_number: hemisAccount.student_id_number,
-      });
-
-      if (!existStudent) {
-        finalStudent = await StudentModel.create(hemisAccount);
-      } else {
-        finalStudent = await StudentModel.findByIdAndUpdate(
-          existStudent._id,
-          { $set: hemisAccount },
-          { new: true, runValidators: false }
-        );
-      }
-    } else {
-      // 4️⃣ fallback (HEMIS ishlamasa)
-      finalStudent = await StudentModel.findOne({
-        student_id_number: login,
-      }).lean();
-
-      if (!finalStudent) {
-        return res.status(401).json({
-          status: "error",
-          message:
-            "Login ma'lumotlari noto'g'ri, va bunday student bazada topilmadi",
-        });
-      }
-    }
-
-    // 5️⃣ Appartment tekshirish
-    const existAppartment = await AppartmentModel.findOne({
-      studentId: finalStudent._id,
-    }).lean();
-
-    const token = generateToken(finalStudent._id);
-
-    // ❗ faqat student model qaytadi, hemisData qaytarilmaydi
-    return res.status(200).json({
-      status: "success",
-      student: {
-        ...(finalStudent.toObject?.() || finalStudent),
-        existAppartment: !!existAppartment,
-      },
-      hemisData: null,
-      token,
+  // Agar hemmisToken mavjud bo'lsa, HEMIS dan accountni olamiz
+  if (hemisToken) {
+    const findStudent = await StudentModel.findOne({
+      student_id_number: login,
     });
-  } catch (err) {
-    return res.status(500).json({
-      status: "error",
-      message: "Studentni saqlash yoki olishda xatolik",
-      error: process.env.NODE_ENV === "development" ? err.message : undefined,
-    });
+    res.status(200).json({ statuss: "success", student: findStudent });
   }
+
+  // Agar HEMIS muvaffaqiyatli bo'lsa — hemizAccount bilan davom etamiz
+
+  // Agar bu yerga keldik — HEMIS bilan autentifikatsiya bo'lmagan yoki HEMIS vaqtincha ishlamadi.
 });
 
 // Appartment mavjudligini tekshirish
