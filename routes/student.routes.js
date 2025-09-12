@@ -21,7 +21,6 @@ const __dirname = path.dirname(__filename);
 // Student ma'lumotlarini tozalash va formatlash funksiyasi
 router.post("/student/sign", async (req, res) => {
   const { login, password } = req.body;
-
   if (!login || !password) {
     return res.status(400).json({
       status: "error",
@@ -29,116 +28,110 @@ router.post("/student/sign", async (req, res) => {
     });
   }
 
-  let tokenData;
+  let hemisToken = null;
+  let hemisAccount = null;
+
+  // 1️⃣ HEMIS login
   try {
-    // HEMIS login
-    const { data } = await axios.post(
+    const loginResp = await axios.post(
       `${process.env.HEMIS_API_URL}/auth/login`,
       { login, password },
       {
-        timeout: 5000, // ⏱ 10s o‘rniga 5s
+        timeout: 5000,
         headers: { "Content-Type": "application/json" },
       }
     );
-    tokenData = data;
-  } catch (err) {
-    // Local bazadan tekshirish
-    const findMockStudent = await StudentModel.findOne({
-      student_id_number: login,
-    }).lean();
 
-    if (!findMockStudent) {
+    hemisToken = loginResp.data?.data?.token || null;
+    if (!hemisToken) {
+      return res.status(500).json({
+        status: "error",
+        message: "HEMIS dan token olinmadi",
+      });
+    }
+  } catch (err) {
+    if (err.response && [401, 403].includes(err.response.status)) {
       return res.status(401).json({
         status: "error",
-        message:
-          "Login ma'lumotlari noto'g'ri, va bunday student bazada topilmadi",
+        message: "Login yoki parol noto‘g‘ri (HEMIS).",
       });
     }
 
-    const [existAppartment] = await Promise.all([
-      AppartmentModel.findOne({ studentId: findMockStudent._id }).lean(),
-    ]);
-
-    const token = generateToken(findMockStudent._id);
-    return res.status(200).json({
-      status: "success",
-      student: {
-        ...findMockStudent,
-        existAppartment: !!existAppartment,
-      },
-      hemisData: null,
-      token,
-    });
+    // faqat HEMIS ishlamay qolsa fallback
+    console.warn("HEMIS login failed, fallback:", err.message || err);
   }
 
-  // HEMIS account ma'lumotini olish
-  let account;
+  let finalStudent;
   try {
-    const response = await axios.get(
-      `${process.env.HEMIS_API_URL}/account/me`,
-      {
-        headers: { Authorization: `Bearer ${tokenData.data.token}` },
-        timeout: 5000, // ⏱ tezlashtirish
-      }
-    );
-    account = response.data;
-  } catch (err) {
-    return res.status(500).json({
-      status: "error",
-      message: "HEMIS tizimidan ma'lumot olishda xatolik yuz berdi",
-    });
-  }
-
-  if (!account || !account.data) {
-    return res.status(500).json({
-      status: "error",
-      message: "HEMIS tizimidan ma'lumot kelmadi",
-    });
-  }
-
-  try {
-    // Studentni bazadan topish va appartmentni tekshirishni parallel bajarish
-    const [findStudent] = await Promise.all([
-      StudentModel.findOne({
-        student_id_number: account.data.student_id_number,
-      }),
-    ]);
-
-    let finalStudent;
-    if (!findStudent) {
-      finalStudent = await StudentModel.create(account.data);
-    } else {
-      finalStudent = await StudentModel.findByIdAndUpdate(
-        findStudent._id,
-        { $set: account.data },
-        { new: true, runValidators: false }
+    if (hemisToken) {
+      // 2️⃣ HEMIS account olish
+      const accountResp = await axios.get(
+        `${process.env.HEMIS_API_URL}/account/me`,
+        {
+          headers: { Authorization: `Bearer ${hemisToken}` },
+          timeout: 5000,
+        }
       );
+      hemisAccount = accountResp.data?.data;
+
+      if (!hemisAccount) {
+        return res.status(500).json({
+          status: "error",
+          message: "HEMIS account ma'lumotlari kelmadi",
+        });
+      }
+
+      // 3️⃣ Studentni bazada yangilash/yaratish
+      const existStudent = await StudentModel.findOne({
+        student_id_number: hemisAccount.student_id_number,
+      });
+
+      if (!existStudent) {
+        finalStudent = await StudentModel.create(hemisAccount);
+      } else {
+        finalStudent = await StudentModel.findByIdAndUpdate(
+          existStudent._id,
+          { $set: hemisAccount },
+          { new: true, runValidators: false }
+        );
+      }
+    } else {
+      // 4️⃣ fallback (HEMIS ishlamasa)
+      finalStudent = await StudentModel.findOne({
+        student_id_number: login,
+      }).lean();
+
+      if (!finalStudent) {
+        return res.status(401).json({
+          status: "error",
+          message:
+            "Login ma'lumotlari noto'g'ri, va bunday student bazada topilmadi",
+        });
+      }
     }
 
-    // Appartmentni parallel emas, student ID ma'lum bo‘lgach tekshiramiz
+    // 5️⃣ Appartment tekshirish
     const existAppartment = await AppartmentModel.findOne({
       studentId: finalStudent._id,
     }).lean();
 
     const token = generateToken(finalStudent._id);
 
+    // ❗ faqat student model qaytadi, hemisData qaytarilmaydi
     return res.status(200).json({
       status: "success",
-      message: findStudent
-        ? "Student ma'lumotlari yangilandi"
-        : "Student muvaffaqiyatli ro'yxatdan o'tdi",
       student: {
-        ...finalStudent.toObject(),
+        ...(finalStudent.toObject?.() || finalStudent),
         existAppartment: !!existAppartment,
       },
-      hemisData: account.data,
+      hemisData: null,
       token,
     });
-  } catch (error) {
+  } catch (err) {
     return res.status(500).json({
       status: "error",
-      message: "Bazada ma'lumotlarni saqlashda xatolik",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      message: "Studentni saqlash yoki olishda xatolik",
+      error: process.env.NODE_ENV === "development" ? err.message : undefined,
     });
   }
 });
