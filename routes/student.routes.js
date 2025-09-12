@@ -29,83 +29,79 @@ router.post("/student/sign", async (req, res) => {
     });
   }
 
+  // HEMIS login — agar xato bo'lsa 401 qaytiramiz
   let tokenData;
   try {
-    // HEMIS login
     const { data } = await axios.post(
       `${process.env.HEMIS_API_URL}/auth/login`,
       { login, password },
       {
-        timeout: 5000, // ⏱ 10s o‘rniga 5s
+        timeout: 5000,
         headers: { "Content-Type": "application/json" },
       }
     );
-    tokenData = data;
+    tokenData = data; // axios response.data
   } catch (err) {
-    // Local bazadan tekshirish
-    const findMockStudent = await StudentModel.findOne({
-      student_id_number: login,
-    }).lean();
-
-    if (!findMockStudent) {
-      return res.status(401).json({
-        status: "error",
-        message:
-          "Login ma'lumotlari noto'g'ri, va bunday student bazada topilmadi",
-      });
-    }
-
-    const [existAppartment] = await Promise.all([
-      AppartmentModel.findOne({ studentId: findMockStudent._id }).lean(),
-    ]);
-
-    const token = generateToken(findMockStudent._id);
-    return res.status(200).json({
-      status: "success",
-      student: {
-        ...findMockStudent,
-        existAppartment: !!existAppartment,
-      },
-      hemisData: null,
-      token,
+    return res.status(401).json({
+      status: "error",
+      message: "Login yoki parol noto‘g‘ri (HEMIS).",
     });
   }
 
   // HEMIS account ma'lumotini olish
+  let account;
+  try {
+    const response = await axios.get(
+      `${process.env.HEMIS_API_URL}/account/me`,
+      {
+        headers: { Authorization: `Bearer ${tokenData.data.token}` },
+        timeout: 5000,
+      }
+    );
+    account = response.data;
+  } catch (err) {
+    return res.status(500).json({
+      status: "error",
+      message: "HEMIS tizimidan ma'lumot olishda xatolik yuz berdi",
+    });
+  }
+
+  if (!account || !account.data) {
+    return res.status(500).json({
+      status: "error",
+      message: "HEMIS tizimidan ma'lumot kelmadi",
+    });
+  }
 
   try {
-    // Studentni bazadan topish va appartmentni tekshirishni parallel bajarish
-    const [findStudent] = await Promise.all([
-      StudentModel.findOne({
-        student_id_number: account.data.student_id_number,
-      }),
-    ]);
-
-    let finalStudent;
-    if (!findStudent) {
-      finalStudent = await StudentModel.create(account.data);
-    } else {
-      finalStudent = await StudentModel.findByIdAndUpdate(
-        findStudent._id,
-        { $set: account.data },
-        { new: true, runValidators: false }
-      );
-    }
-
-    // Appartmentni parallel emas, student ID ma'lum bo‘lgach tekshiramiz
-    const existAppartment = await AppartmentModel.findOne({
-      studentId: finalStudent._id,
+    // Endi — **bazani yangilash yoki yaratish yo'q**.
+    // Faqat local bazadagi studentni topib qaytaramiz.
+    const findStudent = await StudentModel.findOne({
+      student_id_number: account.data.student_id_number,
     }).lean();
 
-    const token = generateToken(finalStudent._id);
+    if (!findStudent) {
+      // HEMIS login to'g'ri bo'lsa ham local bazada student bo'lmasa - 404
+      return res.status(404).json({
+        status: "error",
+        message:
+          "HEMIS login/parol to'g'ri, ammo local bazada bunday student topilmadi.",
+        hemisData: account.data, // ixtiyoriy: kerak bo'lsa yuborish mumkin
+      });
+    }
+
+    // Appartmentni tekshiramiz (student mavjud bo'lgach)
+    const existAppartment = await AppartmentModel.findOne({
+      studentId: findStudent._id,
+    }).lean();
+
+    const token = generateToken(findStudent._id);
 
     return res.status(200).json({
       status: "success",
-      message: findStudent
-        ? "Student ma'lumotlari yangilandi"
-        : "Student muvaffaqiyatli ro'yxatdan o'tdi",
+      message: "Student muvaffaqiyatli autentifikatsiyadan o'tdi",
       student: {
-        ...finalStudent.toObject(),
+        ...findStudent,
         existAppartment: !!existAppartment,
       },
       hemisData: account.data,
@@ -114,7 +110,7 @@ router.post("/student/sign", async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       status: "error",
-      message: "Bazada ma'lumotlarni saqlashda xatolik",
+      message: "So‘rovni bajarishda xatolik yuz berdi",
       error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
