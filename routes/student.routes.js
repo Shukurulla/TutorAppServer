@@ -144,11 +144,10 @@ router.post("/student/sign", async (req, res) => {
         message: findStudent
           ? "Student ma'lumotlari yangilandi"
           : "Student muvaffaqiyatli ro'yxatdan o'tdi",
-        student: {
+        data: {
           ...finalStudent.toObject(),
           existAppartment: !!existAppartment,
         },
-        hemisData: hemisAccount,
         token,
       });
     } catch (error) {
