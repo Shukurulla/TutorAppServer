@@ -144,7 +144,7 @@ router.post("/student/sign", async (req, res) => {
         message: findStudent
           ? "Student ma'lumotlari yangilandi"
           : "Student muvaffaqiyatli ro'yxatdan o'tdi",
-        data: {
+        student: {
           ...finalStudent.toObject(),
           existAppartment: !!existAppartment,
         },
