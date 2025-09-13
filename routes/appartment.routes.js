@@ -441,6 +441,7 @@ router.get("/appartment/new/:id", authMiddleware, async (req, res) => {
 
     const findAppartment = await AppartmentModel.find({
       studentId: id,
+      status: "Being checked",
     });
 
     res.json({ status: "success", data: findAppartment });
