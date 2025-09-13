@@ -328,6 +328,7 @@ router.post("/appartment/check", authMiddleware, async (req, res) => {
       userId: findAppartment.studentId,
       type: "report",
       status: "yellow",
+      appartmentId,
     });
 
     if (findYellowNotification) {
