@@ -358,6 +358,14 @@ router.post("/appartment/check", authMiddleware, async (req, res) => {
       notification_type: "report",
     });
 
+    await NotificationModel.delete({
+      appartmentId,
+      userId: findAppartment.studentId,
+      status: "green",
+      message: "Ijara malumotlari tekshirildi",
+      notification_type: "report",
+    });
+
     await NotificationModel.create({
       appartmentId,
       userId: findAppartment.studentId,
