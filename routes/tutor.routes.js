@@ -820,7 +820,13 @@ router.get(
         status: "process",
       });
 
-      console.log(findActivePermission);
+      if (!findActivePermission) {
+        return res.status(200).json({
+          status: "success",
+          statistics: [],
+          total: 0,
+        });
+      }
 
       // studentId larni string qilib olish
       const studentIds = findStudents.map((s) => String(s._id));
