@@ -831,7 +831,7 @@ router.get(
           $match: {
             studentId: { $in: studentIds },
             typeAppartment: "tenant",
-            permission: findActivePermission._id,
+            permission: findActivePermission._id.toString(),
           },
         },
         { $sort: { createdAt: -1 } },
