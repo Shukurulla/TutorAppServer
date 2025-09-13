@@ -99,7 +99,16 @@ router.post(
         });
 
         await newAppartment.save();
-        await NotificationModel.deleteMany({ userId: studentId });
+        await NotificationModel.deleteMany({
+          userId: studentId,
+          notification_type: "report",
+          status: "red",
+        });
+        await NotificationModel.deleteMany({
+          userId: studentId,
+          notification_type: "report",
+          status: "yellow",
+        });
         await NotificationModel.create({
           userId: studentId,
           notification_type: "report",
@@ -332,6 +341,7 @@ router.post("/appartment/check", authMiddleware, async (req, res) => {
       status: "blue",
       notification_type: "report",
     });
+
     await NotificationModel.create({
       appartmentId,
       userId: findAppartment.studentId,
