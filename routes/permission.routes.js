@@ -290,7 +290,6 @@ router.post("/special", authMiddleware, async (req, res) => {
         userId: st.studentId.toString(),
         status: "green",
         notification_type: "report",
-        permission: st.permissionId,
       });
 
       await NotificationModel.create({
