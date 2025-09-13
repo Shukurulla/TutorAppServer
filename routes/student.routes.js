@@ -30,37 +30,40 @@ router.post("/student/sign", async (req, res) => {
   }
 
   try {
-    // Studentni local bazadan olish
-    const findStudent = await StudentModel.findOne({
-      student_id_number: login,
-    }).lean();
+    // HEMIS va local studentni parallel chaqiramiz
+    const [hemisResponse, findStudent] = await Promise.all([
+      axios
+        .post(
+          "https://student.karsu.uz/rest/v1/auth/login",
+          { login, password },
+          { timeout: 1000 } // ⏳ 1 sekunddan oshsa xato qaytaradi
+        )
+        .catch((err) => ({ error: err })),
 
-    let hemisResponse;
-    try {
-      hemisResponse = await axios.post(
-        "https://student.karsu.uz/rest/v1/auth/login",
-        { login, password }
-      );
-    } catch (err) {
-      // agar HEMIS 401 yoki boshqa error qaytarsa, shu yerda tutib olamiz
-      if (err.response && err.response.status === 401) {
+      StudentModel.findOne({ student_id_number: login }).lean(),
+    ]);
+
+    // ❌ agar HEMIS xato bo‘lsa
+    if (hemisResponse.error) {
+      if (hemisResponse.error.response?.status === 401) {
         return res
           .status(401)
           .json({ status: "error", message: "Login yoki parol hato" });
       }
       return res.status(500).json({
         status: "error",
-        message: "HEMIS serverida xatolik: " + err.message,
+        message: "HEMIS serverida xatolik: " + hemisResponse.error.message,
       });
     }
 
-    const { data } = hemisResponse;
-    if (!data.success) {
+    // ❌ agar HEMIS muvaffaqiyatsiz bo‘lsa
+    if (!hemisResponse.data.success) {
       return res
         .status(401)
         .json({ status: "error", message: "Login yoki parol hato" });
     }
 
+    // ❌ agar student local bazada topilmasa
     if (!findStudent) {
       return res.status(404).json({
         status: "error",
@@ -69,10 +72,12 @@ router.post("/student/sign", async (req, res) => {
       });
     }
 
+    // 🔍 Appartmentni tekshirish
     const existAppartment = await AppartmentModel.findOne({
       studentId: findStudent._id,
     }).lean();
 
+    // 🔑 Token generatsiya
     const token = generateToken(findStudent._id);
 
     return res.status(200).json({
