@@ -284,7 +284,7 @@ router.post("/special", authMiddleware, async (req, res) => {
         });
       }
 
-      await AppartmentModel.delete({ permission: st.permissionId });
+      await AppartmentModel.deleteOne({ permission: st.permissionId });
 
       await NotificationModel.delete({
         userId: st.studentId.toString(),
