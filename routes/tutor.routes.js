@@ -823,7 +823,7 @@ router.get(
       if (!findActivePermission) {
         return res.status(200).json({
           status: "success",
-          statistics: {},
+          statistics: [],
         });
       }
 
