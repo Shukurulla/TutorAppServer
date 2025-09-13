@@ -35,6 +35,17 @@ router.post("/student/sign", async (req, res) => {
       student_id_number: login,
     }).lean();
 
+    const { data } = await axios.post(
+      "https://student.karsu.uz/rest/v1/auth/login",
+      { login, password }
+    );
+
+    if (!data.success) {
+      return res
+        .status(401)
+        .json({ status: "error", message: "Login yoki parol hato" });
+    }
+
     if (!findStudent) {
       return res.status(404).json({
         status: "error",
