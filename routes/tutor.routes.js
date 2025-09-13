@@ -382,23 +382,17 @@ router.post("/tutor/change-password", authMiddleware, async (req, res) => {
 
     const { confirmPassword, newPassword } = req.body;
 
-    const comparePassword = await bcrypt.compare(
-      confirmPassword,
-      findTutor.password
-    );
-    if (!comparePassword) {
+    if (!findTutor.password != confirmPassword) {
       return res
-        .status(401)
-        .json({ status: "error", message: "Password togri kelmadi" });
+        .status(400)
+        .json({ status: "error", message: "Tasdiqlash paroli hato" });
     }
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     const changeTutorData = await tutorModel.findByIdAndUpdate(
       findTutor,
       {
         $set: {
-          password: hashedPassword,
+          password: newPassword,
         },
       },
       { new: true }
