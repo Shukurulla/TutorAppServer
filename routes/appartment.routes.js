@@ -332,6 +332,13 @@ router.post("/appartment/check", authMiddleware, async (req, res) => {
       status: "blue",
       notification_type: "report",
     });
+    await NotificationModel.create({
+      appartmentId,
+      userId: findAppartment.studentId,
+      status: "green",
+      message: "Ijara malumotlari tekshirildi",
+      notification_type: "report",
+    });
 
     const checkedAppartment = await AppartmentModel.findById(appartmentId);
     res.status(200).json({ status: "success", data: checkedAppartment });
