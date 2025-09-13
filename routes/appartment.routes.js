@@ -312,7 +312,6 @@ router.post("/appartment/check", authMiddleware, async (req, res) => {
       appartmentId,
       userId: findAppartment.studentId,
       status: "blue",
-      permission: findAppartment.permission,
       notification_type: "report",
     });
 
