@@ -358,7 +358,7 @@ router.post("/appartment/check", authMiddleware, async (req, res) => {
       notification_type: "report",
     });
 
-    await NotificationModel.delete({
+    await NotificationModel.deleteOne({
       appartmentId,
       userId: findAppartment.studentId,
       status: "green",
