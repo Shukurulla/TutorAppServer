@@ -122,8 +122,7 @@ router.post("/student/sign", async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       status: "error",
-      message: "So‘rovni bajarishda xatolik yuz berdi",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      message: error.message,
     });
   }
 });
