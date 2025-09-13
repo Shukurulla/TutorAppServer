@@ -326,10 +326,12 @@ router.post("/appartment/check", authMiddleware, async (req, res) => {
 
     const findYellowNotification = await NotificationModel.findOne({
       userId: findAppartment.studentId,
-      type: "report",
+      notification_type: "report",
       status: "yellow",
       appartmentId,
     });
+
+    console.log(findYellowNotification);
 
     if (findYellowNotification) {
       return res.status(400).json({
