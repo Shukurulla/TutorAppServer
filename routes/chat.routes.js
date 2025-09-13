@@ -36,9 +36,11 @@ router.get("/messages/my-messages/:id", authMiddleware, async (req, res) => {
 router.get("/messages/by-group/:id", authMiddleware, async (req, res) => {
   try {
     // Specific guruh uchun xabarlarni topish
-    const findMessages = await chatModel.find({
-      "groups.id": parseInt(req.params.id),
-    });
+    const findMessages = await chatModel
+      .find({
+        "groups.id": parseInt(req.params.id),
+      })
+      .select("");
     res.json({ status: "success", data: findMessages });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
