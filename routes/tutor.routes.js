@@ -454,7 +454,7 @@ router.get("/tutor/students-group/:group", authMiddleware, async (req, res) => {
     // Studentlarni olish
     const findStudents = await StudentModel.find(filter)
       .select(
-        "group province gender department specialty level full_name image"
+        "group province gender department specialty level full_name short_name first_name second_name third_name image"
       )
       .skip((pageNumber - 1) * limitNumber)
       .limit(limitNumber)

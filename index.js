@@ -13,6 +13,7 @@ import NotificationRouter from "./routes/notification.routes.js";
 import AdsRouter from "./routes/ads.routes.js";
 import TutorNotificationRouter from "./routes/tutorNotificaton.routes.js";
 import FacultyAdminRouter from "./routes/faculty.admin.routes.js"; // YANGI QOSHILDI
+
 import mongoose from "mongoose";
 import cors from "cors";
 import path from "path";
