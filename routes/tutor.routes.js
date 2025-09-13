@@ -824,7 +824,6 @@ router.get(
         return res.status(200).json({
           status: "success",
           statistics: [],
-          total: 0,
         });
       }
 
