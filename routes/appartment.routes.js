@@ -131,6 +131,7 @@ router.post(
           appartmentOwnerName,
           appartmentOwnerPhone,
           typeAppartment,
+          green: "green",
           permission,
         });
 
@@ -143,6 +144,7 @@ router.post(
           createdAt: appartment.createdAt,
           updatedAt: appartment.updatedAt,
           _id: appartment._id,
+          green: "green",
           permission: appartment.appartment,
         };
 
@@ -195,6 +197,7 @@ router.post(
             bedroomNumber: bedroomNumber.toString(),
             roomNumber: roomNumber.toString(),
           },
+          status: "green",
           typeAppartment,
         });
 
@@ -205,6 +208,7 @@ router.post(
           _id: appartment._id,
           studentId: appartment.studentId,
           createdAt: appartment.createdAt,
+          green: "green",
           permission: appartment.permission,
           updatedAt: appartment.updatedAt,
         };
