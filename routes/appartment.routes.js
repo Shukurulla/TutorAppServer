@@ -512,10 +512,17 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
     const studentIds = students.map((s) => s._id);
     const queryStatus = status === "blue" ? "Being checked" : status;
 
+    const activePermission = await permissionModel.findOne({
+      tutorId: userId,
+      status: "process",
+    });
+
     // barcha kerakli appartments
     const appartments = await AppartmentModel.find({
       studentId: { $in: studentIds },
       typeAppartment: "tenant",
+      permission: activePermission._id.toString(),
+
       status: queryStatus,
     })
       .sort({ createdAt: -1 }) // oxirgilarni oldin
