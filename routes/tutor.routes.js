@@ -13,6 +13,7 @@ import NotificationModel from "../models/notification.model.js";
 import { uploadSingleImage } from "../middlewares/upload.middleware.js";
 import tutorNotificationModel from "../models/tutorNotification.model.js";
 import facultyAdminModel from "../models/faculty.admin.model.js";
+import permissionModel from "../models/permission.model.js";
 
 const router = express.Router();
 
@@ -814,13 +815,21 @@ router.get(
         });
       }
 
+      const findActivePermission = await permissionModel.findOne({
+        tutorId: userId,
+      });
+
       // studentId larni string qilib olish
       const studentIds = findStudents.map((s) => String(s._id));
 
       // Aggregation bilan oxirgi appartmentlarni olish
       const studentAppartments = await AppartmentModel.aggregate([
         {
-          $match: { studentId: { $in: studentIds }, typeAppartment: "tenant" },
+          $match: {
+            studentId: { $in: studentIds },
+            typeAppartment: "tenant",
+            permission: findActivePermission._id,
+          },
         },
         { $sort: { createdAt: -1 } },
         {
