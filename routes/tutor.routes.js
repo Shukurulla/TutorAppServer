@@ -816,9 +816,11 @@ router.get(
       }
 
       const findActivePermission = await permissionModel.findOne({
-        tutorId: userId,
+        tutorId: findTutor._id,
         status: "process",
       });
+
+      console.log(findActivePermission);
 
       // studentId larni string qilib olish
       const studentIds = findStudents.map((s) => String(s._id));
