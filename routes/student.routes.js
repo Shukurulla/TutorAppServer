@@ -29,54 +29,10 @@ router.post("/student/sign", async (req, res) => {
     });
   }
 
-  // 🔐 HEMIS login
-  let tokenData;
-  try {
-    const { data } = await axios.post(
-      `${process.env.HEMIS_API_URL}/auth/login`,
-      { login, password },
-      {
-        timeout: 5000,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-    tokenData = data;
-  } catch (err) {
-    return res.status(401).json({
-      status: "error",
-      message: "Login yoki parol noto‘g‘ri (HEMIS).",
-    });
-  }
-
-  // 🔎 HEMIS account
-  let account;
-  try {
-    const response = await axios.get(
-      `${process.env.HEMIS_API_URL}/account/me`,
-      {
-        headers: { Authorization: `Bearer ${tokenData.data.token}` },
-        timeout: 5000,
-      }
-    );
-    account = response.data;
-  } catch (err) {
-    return res.status(500).json({
-      status: "error",
-      message: "HEMIS tizimidan ma'lumot olishda xatolik yuz berdi",
-    });
-  }
-
-  if (!account || !account.data) {
-    return res.status(500).json({
-      status: "error",
-      message: "HEMIS tizimidan ma'lumot kelmadi",
-    });
-  }
-
   try {
     // Studentni local bazadan olish
     const findStudent = await StudentModel.findOne({
-      student_id_number: account.data.student_id_number,
+      student_id_number: login,
     }).lean();
 
     if (!findStudent) {
