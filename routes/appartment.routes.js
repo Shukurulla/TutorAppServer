@@ -161,8 +161,15 @@ router.post(
         await NotificationModel.create({
           userId: studentId,
           notification_type: "report",
-          message: "Tekshirilmoqda",
-          status: "blue",
+          message: "Tabriklaymiz siz yashil zonadasiz",
+          status: "green",
+          appartmentId: appartment._id,
+        });
+        await NotificationModel.create({
+          userId: studentId,
+          notification_type: "push",
+          message: "Tabriklaymiz siz yashil zonadasiz",
+          status: "green",
           appartmentId: appartment._id,
         });
 
@@ -206,8 +213,15 @@ router.post(
         await NotificationModel.create({
           userId: studentId,
           notification_type: "report",
-          message: "Tekshirilmoqda",
-          status: "blue",
+          message: "Tabriklaymiz siz yashil zonadasiz",
+          status: "green",
+          appartmentId: appartment._id,
+        });
+        await NotificationModel.create({
+          userId: studentId,
+          notification_type: "push",
+          message: "Tabriklaymiz siz yashil zonadasiz",
+          status: "green",
           appartmentId: appartment._id,
         });
 
