@@ -40,7 +40,11 @@ router.post("/student/sign", async (req, res) => {
       { login, password }
     );
 
-    console.log(data);
+    if (!data.success || data.success != true) {
+      return res
+        .status(401)
+        .json({ status: "error", message: "Login yoki parol hato" });
+    }
 
     if (!findStudent) {
       return res.status(404).json({
