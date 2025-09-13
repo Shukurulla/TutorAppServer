@@ -54,6 +54,11 @@ router.post("/permission-create", authMiddleware, async (req, res) => {
           status: "blue",
           userId: { $in: studentIds },
         });
+        await NotificationModel.deleteMany({
+          notification_type: "report",
+          status: "yellow",
+          userId: { $in: studentIds },
+        });
 
         if (students.length === 0) return [];
 
