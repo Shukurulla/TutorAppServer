@@ -324,6 +324,19 @@ router.post("/appartment/check", authMiddleware, async (req, res) => {
     let additionImageStatus = "";
     if (additionImage) additionImageStatus = additionImage;
 
+    const findYellowNotification = await NotificationModel.findOne({
+      userId: findAppartment.studentId,
+      type: "report",
+      status: "yellow",
+    });
+
+    if (findYellowNotification) {
+      return res.status(400).json({
+        status: "error",
+        message: "Siz bu student uchun qayta topshirish buyrugini jonatgansiz",
+      });
+    }
+
     await AppartmentModel.findByIdAndUpdate(appartmentId, {
       status,
       boilerImage: { ...findAppartment.boilerImage, status: boiler },
