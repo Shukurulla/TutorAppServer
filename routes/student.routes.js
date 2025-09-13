@@ -35,12 +35,27 @@ router.post("/student/sign", async (req, res) => {
       student_id_number: login,
     }).lean();
 
-    const { data } = await axios.post(
-      "https://student.karsu.uz/rest/v1/auth/login",
-      { login, password }
-    );
+    let hemisResponse;
+    try {
+      hemisResponse = await axios.post(
+        "https://student.karsu.uz/rest/v1/auth/login",
+        { login, password }
+      );
+    } catch (err) {
+      // agar HEMIS 401 yoki boshqa error qaytarsa, shu yerda tutib olamiz
+      if (err.response && err.response.status === 401) {
+        return res
+          .status(401)
+          .json({ status: "error", message: "Login yoki parol hato" });
+      }
+      return res.status(500).json({
+        status: "error",
+        message: "HEMIS serverida xatolik: " + err.message,
+      });
+    }
 
-    if (!data.success || data.success != true) {
+    const { data } = hemisResponse;
+    if (!data.success) {
       return res
         .status(401)
         .json({ status: "error", message: "Login yoki parol hato" });
@@ -54,68 +69,18 @@ router.post("/student/sign", async (req, res) => {
       });
     }
 
-    // Yotoqxona bor-yo‘qligini tekshirish
     const existAppartment = await AppartmentModel.findOne({
       studentId: findStudent._id,
     }).lean();
 
     const token = generateToken(findStudent._id);
 
-    // 🔑 faqat kerakli fieldlarni qaytaramiz
-    const filteredStudent = {
-      _id: findStudent._id,
-      id: findStudent.id,
-      university: findStudent.university,
-      full_name: findStudent.full_name,
-      short_name: findStudent.short_name,
-      first_name: findStudent.first_name,
-      second_name: findStudent.second_name,
-      third_name: findStudent.third_name,
-      gender: findStudent.gender,
-      birth_date: findStudent.birth_date,
-      student_id_number: findStudent.student_id_number,
-      image: findStudent.image,
-      avg_gpa: findStudent.avg_gpa,
-      avg_grade: findStudent.avg_grade,
-      total_credit: findStudent.total_credit,
-      country: findStudent.country,
-      province: findStudent.province,
-      currentProvince: findStudent.currentProvince,
-      district: findStudent.district,
-      currentDistrict: findStudent.currentDistrict,
-      terrain: findStudent.terrain,
-      currentTerrain: findStudent.currentTerrain,
-      citizenship: findStudent.citizenship,
-      studentStatus: findStudent.studentStatus,
-      _curriculum: findStudent._curriculum,
-      educationForm: findStudent.educationForm,
-      educationType: findStudent.educationType,
-      paymentForm: findStudent.paymentForm,
-      studentType: findStudent.studentType,
-      socialCategory: findStudent.socialCategory,
-      accommodation: findStudent.accommodation,
-      department: findStudent.department,
-      specialty: findStudent.specialty,
-      group: findStudent.group,
-      level: findStudent.level,
-      semester: findStudent.semester,
-      educationYear: findStudent.educationYear,
-      year_of_enter: findStudent.year_of_enter,
-      roommate_count: findStudent.roommate_count,
-      is_graduate: findStudent.is_graduate,
-      total_acload: findStudent.total_acload,
-      other: findStudent.other,
-      created_at: findStudent.created_at,
-      updated_at: findStudent.updated_at,
-      hash: findStudent.hash,
-      validateUrl: findStudent.validateUrl,
-      __v: findStudent.__v,
-      existAppartment: !!existAppartment,
-    };
-
     return res.status(200).json({
       status: "success",
-      student: filteredStudent,
+      student: {
+        ...findStudent,
+        existAppartment: !!existAppartment,
+      },
       hemisData: null,
       token,
     });
