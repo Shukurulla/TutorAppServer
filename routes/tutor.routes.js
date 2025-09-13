@@ -823,7 +823,24 @@ router.get(
       if (!findActivePermission) {
         return res.status(200).json({
           status: "success",
-          statistics: [],
+          statistics: {
+            green: {
+              percent: "0%",
+              total: 0,
+            },
+            yellow: {
+              percent: "0%",
+              total: 0,
+            },
+            red: {
+              percent: "0%",
+              total: 0,
+            },
+            blue: {
+              percent: "0%",
+              total: 0,
+            },
+          },
         });
       }
 
