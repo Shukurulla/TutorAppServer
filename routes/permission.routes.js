@@ -240,6 +240,7 @@ router.get("/:permissionId/:groupId", authMiddleware, async (req, res) => {
 router.post("/special", authMiddleware, async (req, res) => {
   try {
     const { students } = req.body;
+    console.log(students);
 
     for (const st of students) {
       const findRedNotification = await NotificationModel.findOne({
