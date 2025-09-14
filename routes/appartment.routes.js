@@ -515,6 +515,10 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
     const { status } = req.params;
+    let { page = 1, limit = 20 } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
 
     if (!["red", "yellow", "green", "blue"].includes(status)) {
       return res.status(401).json({
@@ -531,7 +535,26 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
       });
     }
 
+    // tutor group nomlari
     const tutorGroups = findTutor.group.map((g) => g.name);
+
+    // faqat kerakli fieldlarni olish
+    const students = await StudentModel.find({
+      "group.name": { $in: tutorGroups },
+    })
+      .select(
+        "full_name image faculty group province gender department specialty"
+      )
+      .lean();
+
+    if (!students.length) {
+      return res.status(400).json({
+        status: "error",
+        message: "Bu guruhlarda studentlar topilmadi",
+      });
+    }
+
+    const studentIds = students.map((s) => s._id);
     const queryStatus = status === "blue" ? "Being checked" : status;
 
     const activePermission = await permissionModel.findOne({
@@ -539,66 +562,56 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
       status: "process",
     });
 
-    // Aggregation pipeline
-    const result = await StudentModel.aggregate([
-      {
-        $match: {
-          "group.name": { $in: tutorGroups },
-        },
-      },
-      {
-        $lookup: {
-          from: "appartments", // MongoDB kolleksiya nomi
-          localField: "_id",
-          foreignField: "studentId",
-          as: "appartments",
-        },
-      },
-      {
-        $addFields: {
-          appartments: {
-            $filter: {
-              input: "$appartments",
-              as: "app",
-              cond: {
-                $and: [
-                  { $eq: ["$$app.typeAppartment", "tenant"] },
-                  {
-                    $eq: ["$$app.permission", activePermission._id.toString()],
-                  },
-                  { $eq: ["$$app.status", queryStatus] },
-                ],
-              },
-            },
-          },
-        },
-      },
-      {
-        $match: {
-          "appartments.0": { $exists: true }, // faqat appartmenti mavjud studentlar
-        },
-      },
-      {
-        $unwind: "$group", // har bir student uchun groupni alohida qilamiz
-      },
-      {
-        $group: {
-          _id: "$group.name",
-          count: { $sum: 1 },
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          groupName: "$_id",
-          count: 1,
-        },
-      },
-    ]);
+    // barcha kerakli appartments
+    const appartments = await AppartmentModel.find({
+      studentId: { $in: studentIds },
+      typeAppartment: "tenant",
+      permission: activePermission._id.toString(),
+
+      status: queryStatus,
+    })
+      .sort({ createdAt: -1 }) // oxirgilarni oldin
+      .lean();
+
+    // Har bir student uchun eng so‘nggi appartmentni olish
+    const latestAppartmentsMap = new Map();
+    for (const appartment of appartments) {
+      const key = appartment.studentId.toString();
+      if (!latestAppartmentsMap.has(key)) {
+        latestAppartmentsMap.set(key, appartment);
+      }
+    }
+
+    // Result yasash
+    const result = [];
+    for (const student of students) {
+      const appartment = latestAppartmentsMap.get(student._id.toString());
+      if (appartment) {
+        result.push({
+          student,
+          appartment,
+        });
+      }
+    }
+
+    // Pagination
+    const total = result.length;
+    const totalPages = Math.ceil(total / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedData = result.slice(startIndex, endIndex);
 
     res.json({
       status: "success",
-      data: result,
+      data: paginatedData,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages,
+        nextPage: page < totalPages ? page + 1 : null,
+        prevPage: page > 1 ? page - 1 : null,
+      },
     });
   } catch (error) {
     console.error(error);
