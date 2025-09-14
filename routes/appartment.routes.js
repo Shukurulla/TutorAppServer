@@ -486,144 +486,120 @@ router.get("/appartment/all-delete", async (req, res) => {
   }
 });
 
+router.get("/appartment/new/:id", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const findStudent = await StudentModel.findById(id).select("_id");
+
+    if (!findStudent) {
+      return res
+        .status(401)
+        .json({ status: "error", message: "Bunday student topilmadi" });
+    }
+
+    const findAppartment = await AppartmentModel.find({
+      studentId: id,
+      status: "Being checked",
+    });
+
+    res.json({ status: "success", data: findAppartment });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ status: "error", message: "Serverda xatolik yuz berdi" });
+  }
+});
+
 router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
     const { status } = req.params;
     let { page = 1, limit = 20 } = req.query;
+
     page = parseInt(page);
     limit = parseInt(limit);
 
-    // Status validation
     if (!["red", "yellow", "green", "blue"].includes(status)) {
-      return res
-        .status(401)
-        .json({ status: "error", message: "Bunday status mavjud emas" });
+      return res.status(401).json({
+        status: "error",
+        message: "Bunday status mavjud emas",
+      });
     }
 
-    // Parallel queries for better performance
-    const queryStatus = status === "blue" ? "Being checked" : status;
-
-    const [findTutor, activePermission] = await Promise.all([
-      tutorModel.findById(userId).select("group").lean(),
-      permissionModel
-        .findOne({
-          tutorId: userId,
-          status: "process",
-        })
-        .select("_id")
-        .lean(),
-    ]);
-
+    const findTutor = await tutorModel.findById(userId).lean();
     if (!findTutor) {
-      return res
-        .status(400)
-        .json({ status: "error", message: "Bunday tutor topilmadi" });
+      return res.status(400).json({
+        status: "error",
+        message: "Bunday tutor topilmadi",
+      });
     }
 
-    if (!activePermission) {
-      return res
-        .status(400)
-        .json({ status: "error", message: "Active permission topilmadi" });
-    }
-
+    // tutor group nomlari
     const tutorGroups = findTutor.group.map((g) => g.name);
 
-    // Aggregation pipeline for optimized query
-    const result = await StudentModel.aggregate([
-      // Match students in tutor's groups
-      {
-        $match: {
-          "group.name": { $in: tutorGroups },
-        },
-      },
-      // Project only needed fields
-      {
-        $project: {
-          full_name: 1,
-          image: 1,
-          faculty: 1,
-          group: 1,
-          province: 1,
-          gender: 1,
-          department: 1,
-          specialty: 1,
-        },
-      },
-      // Lookup latest apartment for each student
-      {
-        $lookup: {
-          from: "appartments", // collection name (odatda lowercase va plural)
-          let: {
-            studentId: "$_id",
-            permissionId: activePermission._id.toString(),
-          },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ["$studentId", { $toString: "$$studentId" }] },
-                    { $eq: ["$typeAppartment", "tenant"] },
-                    { $eq: ["$permission", "$$permissionId"] },
-                    { $eq: ["$status", queryStatus] },
-                  ],
-                },
-              },
-            },
-            { $sort: { createdAt: -1 } },
-            { $limit: 1 },
-          ],
-          as: "appartment",
-        },
-      },
-      // Filter out students without apartments
-      {
-        $match: {
-          appartment: { $ne: [] },
-        },
-      },
-      // Unwind apartment array
-      {
-        $unwind: "$appartment",
-      },
-      // Format the output
-      {
-        $project: {
-          student: {
-            _id: "$_id",
-            full_name: "$full_name",
-            image: "$image",
-            faculty: "$faculty",
-            group: "$group",
-            province: "$province",
-            gender: "$gender",
-            department: "$department",
-            specialty: "$specialty",
-          },
-          appartment: 1,
-        },
-      },
-      // Sort by apartment creation date
-      {
-        $sort: { "appartment.createdAt": -1 },
-      },
-      // Pagination
-      {
-        $facet: {
-          metadata: [{ $count: "total" }],
-          data: [{ $skip: (page - 1) * limit }, { $limit: limit }],
-        },
-      },
-    ]);
+    // faqat kerakli fieldlarni olish
+    const students = await StudentModel.find({
+      "group.name": { $in: tutorGroups },
+    })
+      .select(
+        "full_name image faculty group province gender department specialty"
+      )
+      .lean();
 
-    // Extract data and metadata
-    const total = result[0].metadata[0]?.total || 0;
+    if (!students.length) {
+      return res.status(400).json({
+        status: "error",
+        message: "Bu guruhlarda studentlar topilmadi",
+      });
+    }
+
+    const studentIds = students.map((s) => s._id);
+    const queryStatus = status === "blue" ? "Being checked" : status;
+
+    const activePermission = await permissionModel.findOne({
+      tutorId: userId,
+      status: "process",
+    });
+
+    // barcha kerakli appartments
+    const appartments = await AppartmentModel.find({
+      studentId: { $in: studentIds },
+      typeAppartment: "tenant",
+      permission: activePermission._id.toString(),
+
+      status: queryStatus,
+    })
+      .sort({ createdAt: -1 }) // oxirgilarni oldin
+      .lean();
+
+    // Har bir student uchun eng so‘nggi appartmentni olish
+    const latestAppartmentsMap = new Map();
+    for (const appartment of appartments) {
+      const key = appartment.studentId.toString();
+      if (!latestAppartmentsMap.has(key)) {
+        latestAppartmentsMap.set(key, appartment);
+      }
+    }
+
+    // Result yasash
+    const result = [];
+    for (const student of students) {
+      const appartment = latestAppartmentsMap.get(student._id.toString());
+      if (appartment) {
+        result.push({
+          student,
+          appartment,
+        });
+      }
+    }
+
+    // Pagination
+    const total = result.length;
     const totalPages = Math.ceil(total / limit);
-    const paginatedData = result[0].data.map((item) => ({
-      student: item.student,
-      appartment: item.appartment,
-    }));
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedData = result.slice(startIndex, endIndex);
 
     res.json({
       status: "success",
@@ -639,232 +615,6 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res
-      .status(500)
-      .json({ status: "error", message: "Serverda xatolik yuz berdi" });
-  }
-});
-
-router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
-  try {
-    const { userId } = req.userData;
-    const { status } = req.params;
-
-    // Status validation
-    if (!["red", "yellow", "green", "blue"].includes(status)) {
-      return res
-        .status(401)
-        .json({ status: "error", message: "Bunday status mavjud emas" });
-    }
-
-    const queryStatus = status === "blue" ? "Being checked" : status;
-
-    // 1. Parallel query - tutor va permission
-    const [findTutor, activePermission] = await Promise.all([
-      tutorModel.findById(userId).select("group.name").lean(),
-      permissionModel
-        .findOne({ tutorId: userId, status: "process" })
-        .select("_id")
-        .lean(),
-    ]);
-
-    if (!findTutor) {
-      return res
-        .status(400)
-        .json({ status: "error", message: "Bunday tutor topilmadi" });
-    }
-
-    if (!activePermission) {
-      return res
-        .status(400)
-        .json({ status: "error", message: "Active permission topilmadi" });
-    }
-
-    const tutorGroups = findTutor.group.map((g) => g.name);
-
-    // 2. Aggregation pipeline - bitta query'da hammasi
-    const result = await AppartmentModel.aggregate([
-      // Match apartments
-      {
-        $match: {
-          typeAppartment: "tenant",
-          permission: activePermission._id.toString(),
-          status: queryStatus,
-        },
-      },
-      // Convert studentId string to ObjectId for lookup
-      {
-        $addFields: {
-          studentObjectId: { $toObjectId: "$studentId" },
-        },
-      },
-      // Join with students
-      {
-        $lookup: {
-          from: "students",
-          localField: "studentObjectId",
-          foreignField: "_id",
-          as: "student",
-        },
-      },
-      // Unwind student array
-      {
-        $unwind: "$student",
-      },
-      // Filter by tutor groups
-      {
-        $match: {
-          "student.group.name": { $in: tutorGroups },
-        },
-      },
-      // Project final structure
-      {
-        $project: {
-          appartment: {
-            _id: "$_id",
-            studentId: "$studentId",
-            studentPhoneNumber: "$studentPhoneNumber",
-            district: "$district",
-            fullAddress: "$fullAddress",
-            smallDistrict: "$smallDistrict",
-            typeOfAppartment: "$typeOfAppartment",
-            contract: "$contract",
-            typeOfBoiler: "$typeOfBoiler",
-            priceAppartment: "$priceAppartment",
-            numberOfStudents: "$numberOfStudents",
-            appartmentOwnerName: "$appartmentOwnerName",
-            appartmentOwnerPhone: "$appartmentOwnerPhone",
-            appartmentNumber: "$appartmentNumber",
-            addition: "$addition",
-            current: "$current",
-            boilerImage: "$boilerImage",
-            gazStove: "$gazStove",
-            additionImage: "$additionImage",
-            chimney: "$chimney",
-            status: "$status",
-            needNew: "$needNew",
-            location: "$location",
-            view: "$view",
-            description: "$description",
-            typeAppartment: "$typeAppartment",
-            bedroom: "$bedroom",
-            permission: "$permission",
-            createdAt: "$createdAt",
-            updatedAt: "$updatedAt",
-          },
-          student: {
-            _id: "$student._id",
-            full_name: "$student.full_name",
-            image: "$student.image",
-            faculty: "$student.faculty",
-            group: "$student.group",
-            province: "$student.province",
-            gender: "$student.gender",
-            department: "$student.department",
-            specialty: "$student.specialty",
-          },
-        },
-      },
-      // Sort by creation date
-      {
-        $sort: { "appartment.createdAt": -1 },
-      },
-    ]);
-
-    res.json({
-      status: "success",
-      data: result,
-      total: result.length,
-    });
-  } catch (error) {
-    console.error("Apartment status error:", error);
-    res
-      .status(500)
-      .json({ status: "error", message: "Serverda xatolik yuz berdi" });
-  }
-});
-
-router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
-  try {
-    const { userId } = req.userData;
-    const { status } = req.params;
-
-    const validStatuses = ["red", "yellow", "green", "blue"];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        status: "error",
-        message: "Bunday status mavjud emas",
-      });
-    }
-
-    const findTutor = await tutorModel.findById(userId).lean();
-    if (!findTutor) {
-      return res.status(400).json({
-        status: "error",
-        message: "Bunday tutor topilmadi",
-      });
-    }
-
-    const tutorGroups = findTutor.group.map((g) => g.name);
-
-    const activePermission = await permissionModel.findOne({
-      tutorId: userId,
-      status: "process",
-    });
-
-    if (!activePermission) {
-      return res.status(400).json({
-        status: "error",
-        message: "Faol permission topilmadi",
-      });
-    }
-
-    const queryStatus = status === "blue" ? "Being checked" : status;
-
-    const result = await AppartmentModel.aggregate([
-      {
-        $match: {
-          typeAppartment: "tenant",
-          permission: new mongoose.Types.ObjectId(activePermission._id), // <-- BU TO‘G‘RI
-          status: queryStatus,
-        },
-      },
-      {
-        $lookup: {
-          from: "students",
-          localField: "studentId",
-          foreignField: "_id",
-          as: "student",
-        },
-      },
-      { $unwind: "$student" },
-      {
-        $match: {
-          "student.group.name": { $in: tutorGroups },
-        },
-      },
-      { $unwind: "$student.group" },
-      {
-        $group: {
-          _id: "$student.group.name",
-          count: { $sum: 1 },
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          groupName: "$_id",
-          count: 1,
-        },
-      },
-    ]);
-
-    res.json({
-      status: "success",
-      data: result,
-    });
-  } catch (error) {
-    console.error("Appartment status router error:", error);
     res.status(500).json({
       status: "error",
       message: "Serverda xatolik yuz berdi",
