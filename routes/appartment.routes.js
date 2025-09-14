@@ -649,9 +649,6 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
     const { status } = req.params;
-    let { page = 1, limit = 20 } = req.query;
-    page = parseInt(page);
-    limit = parseInt(limit);
 
     // Status validation
     if (!["red", "yellow", "green", "blue"].includes(status)) {
@@ -685,124 +682,99 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
 
     const tutorGroups = findTutor.group.map((g) => g.name);
 
-    // 2. OPTIMIZED: Avval apartment'larni olamiz (indexed query)
-    const apartments = await AppartmentModel.find({
-      typeAppartment: "tenant",
-      permission: activePermission._id.toString(),
-      status: queryStatus,
-    })
-      .select("studentId createdAt")
-      .sort({ createdAt: -1 })
-      .lean();
-
-    if (!apartments.length) {
-      return res.json({
-        status: "success",
-        data: [],
-        pagination: {
-          total: 0,
-          page,
-          limit,
-          totalPages: 0,
-          nextPage: null,
-          prevPage: null,
+    // 2. Aggregation pipeline - bitta query'da hammasi
+    const result = await AppartmentModel.aggregate([
+      // Match apartments
+      {
+        $match: {
+          typeAppartment: "tenant",
+          permission: activePermission._id.toString(),
+          status: queryStatus,
         },
-      });
-    }
-
-    // 3. Unique student ID'larni olish (eng so'nggi apartment bilan)
-    const studentApartmentMap = new Map();
-    const uniqueStudentIds = [];
-
-    for (const apt of apartments) {
-      const studentIdStr = apt.studentId.toString();
-      if (!studentApartmentMap.has(studentIdStr)) {
-        studentApartmentMap.set(studentIdStr, apt);
-        uniqueStudentIds.push(apt.studentId);
-      }
-    }
-
-    // 4. Students'larni olish - faqat keraklilarini
-    const students = await StudentModel.find({
-      _id: { $in: uniqueStudentIds },
-      "group.name": { $in: tutorGroups },
-    })
-      .select(
-        "full_name image faculty group province gender department specialty"
-      )
-      .lean();
-
-    if (!students.length) {
-      return res.json({
-        status: "success",
-        data: [],
-        pagination: {
-          total: 0,
-          page,
-          limit,
-          totalPages: 0,
-          nextPage: null,
-          prevPage: null,
+      },
+      // Convert studentId string to ObjectId for lookup
+      {
+        $addFields: {
+          studentObjectId: { $toObjectId: "$studentId" },
         },
-      });
-    }
-
-    // 5. Student ID'larini set'ga o'tkazish (tezroq tekshirish uchun)
-    const validStudentIds = new Set(students.map((s) => s._id.toString()));
-
-    // 6. Full apartment ma'lumotlarini olish - faqat valid studentlar uchun
-    const apartmentIds = [];
-    for (const [studentId, apt] of studentApartmentMap) {
-      if (validStudentIds.has(studentId)) {
-        apartmentIds.push(apt._id);
-      }
-    }
-
-    const fullApartments = await AppartmentModel.find({
-      _id: { $in: apartmentIds },
-    }).lean();
-
-    // 7. Map yaratish tezkor access uchun
-    const fullApartmentMap = new Map(
-      fullApartments.map((apt) => [apt._id.toString(), apt])
-    );
-
-    // 8. Result yasash
-    const result = [];
-    for (const student of students) {
-      const studentIdStr = student._id.toString();
-      const simpleApt = studentApartmentMap.get(studentIdStr);
-      if (simpleApt) {
-        const fullApt = fullApartmentMap.get(simpleApt._id.toString());
-        if (fullApt) {
-          result.push({ student, appartment: fullApt });
-        }
-      }
-    }
-
-    // 9. Sort by apartment date
-    result.sort(
-      (a, b) =>
-        new Date(b.appartment.createdAt) - new Date(a.appartment.createdAt)
-    );
-
-    // 10. Pagination
-    const total = result.length;
-    const totalPages = Math.ceil(total / limit);
-    const startIndex = (page - 1) * limit;
-    const paginatedData = result.slice(startIndex, startIndex + limit);
+      },
+      // Join with students
+      {
+        $lookup: {
+          from: "students",
+          localField: "studentObjectId",
+          foreignField: "_id",
+          as: "student",
+        },
+      },
+      // Unwind student array
+      {
+        $unwind: "$student",
+      },
+      // Filter by tutor groups
+      {
+        $match: {
+          "student.group.name": { $in: tutorGroups },
+        },
+      },
+      // Project final structure
+      {
+        $project: {
+          appartment: {
+            _id: "$_id",
+            studentId: "$studentId",
+            studentPhoneNumber: "$studentPhoneNumber",
+            district: "$district",
+            fullAddress: "$fullAddress",
+            smallDistrict: "$smallDistrict",
+            typeOfAppartment: "$typeOfAppartment",
+            contract: "$contract",
+            typeOfBoiler: "$typeOfBoiler",
+            priceAppartment: "$priceAppartment",
+            numberOfStudents: "$numberOfStudents",
+            appartmentOwnerName: "$appartmentOwnerName",
+            appartmentOwnerPhone: "$appartmentOwnerPhone",
+            appartmentNumber: "$appartmentNumber",
+            addition: "$addition",
+            current: "$current",
+            boilerImage: "$boilerImage",
+            gazStove: "$gazStove",
+            additionImage: "$additionImage",
+            chimney: "$chimney",
+            status: "$status",
+            needNew: "$needNew",
+            location: "$location",
+            view: "$view",
+            description: "$description",
+            typeAppartment: "$typeAppartment",
+            bedroom: "$bedroom",
+            permission: "$permission",
+            createdAt: "$createdAt",
+            updatedAt: "$updatedAt",
+          },
+          student: {
+            _id: "$student._id",
+            full_name: "$student.full_name",
+            image: "$student.image",
+            faculty: "$student.faculty",
+            group: "$student.group",
+            province: "$student.province",
+            gender: "$student.gender",
+            department: "$student.department",
+            specialty: "$student.specialty",
+          },
+        },
+      },
+      // Sort by creation date
+      {
+        $sort: { "appartment.createdAt": -1 },
+      },
+    ]);
 
     res.json({
       status: "success",
-      data: paginatedData,
-      pagination: {
-        total,
-        page,
-        limit,
-        totalPages,
-        nextPage: page < totalPages ? page + 1 : null,
-        prevPage: page > 1 ? page - 1 : null,
-      },
+      data: result,
+      total: result.length,
     });
   } catch (error) {
     console.error("Apartment status error:", error);
