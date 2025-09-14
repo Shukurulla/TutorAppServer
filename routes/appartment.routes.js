@@ -490,24 +490,23 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
     const { status } = req.params;
-
+    let { page = 1, limit = 20 } = req.query;
+    page = parseInt(page);
+    limit = parseInt(limit);
     if (!["red", "yellow", "green", "blue"].includes(status)) {
-      return res.status(401).json({
-        status: "error",
-        message: "Bunday status mavjud emas",
-      });
+      return res
+        .status(401)
+        .json({ status: "error", message: "Bunday status mavjud emas" });
     }
-
     const findTutor = await tutorModel.findById(userId).lean();
     if (!findTutor) {
-      return res.status(400).json({
-        status: "error",
-        message: "Bunday tutor topilmadi",
-      });
-    }
+      return res
+        .status(400)
+        .json({ status: "error", message: "Bunday tutor topilmadi" });
+    } // tutor group nomlari
+    //
 
-    const tutorGroups = findTutor.group.map((g) => g.name);
-
+    const tutorGroups = findTutor.group.map((g) => g.name); // faqat kerakli fieldlarni olish
     const students = await StudentModel.find({
       "group.name": { $in: tutorGroups },
     })
@@ -515,70 +514,62 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
         "full_name image faculty group province gender department specialty"
       )
       .lean();
-
     if (!students.length) {
-      return res.status(400).json({
-        status: "error",
-        message: "Bu guruhlarda studentlar topilmadi",
-      });
+      return res
+        .status(400)
+        .json({
+          status: "error",
+          message: "Bu guruhlarda studentlar topilmadi",
+        });
     }
-
     const studentIds = students.map((s) => s._id);
     const queryStatus = status === "blue" ? "Being checked" : status;
-
     const activePermission = await permissionModel.findOne({
       tutorId: userId,
       status: "process",
-    });
-
-    if (!activePermission) {
-      return res.status(400).json({
-        status: "error",
-        message: "Faol permission topilmadi",
-      });
-    }
-
-    // Appartmentlarni indexlab olish (studentId => true)
+    }); // barcha kerakli appartments
     const appartments = await AppartmentModel.find({
       studentId: { $in: studentIds },
       typeAppartment: "tenant",
       permission: activePermission._id.toString(),
       status: queryStatus,
-    }).lean();
-
-    const appartmentsMap = new Map();
-    for (const app of appartments) {
-      appartmentsMap.set(app.studentId.toString(), true);
-    }
-
-    // Guruh bo‘yicha count
-    const groupCountMap = new Map();
-    for (const student of students) {
-      const groupName = student.group.name; // 1 ta group bo‘lsa
-      if (!groupCountMap.has(groupName)) groupCountMap.set(groupName, 0);
-
-      if (appartmentsMap.has(student._id.toString())) {
-        groupCountMap.set(groupName, groupCountMap.get(groupName) + 1);
+    }).sort({ createdAt: -1 }); // oxirgilarni oldin .lean(); // Har bir student uchun eng so‘nggi appartmentni olish
+    const latestAppartmentsMap = new Map();
+    for (const appartment of appartments) {
+      const key = appartment.studentId.toString();
+      if (!latestAppartmentsMap.has(key)) {
+        latestAppartmentsMap.set(key, appartment);
       }
-    }
-
-    const result = Array.from(groupCountMap.entries()).map(
-      ([groupName, count]) => ({
-        groupName,
-        count,
-      })
-    );
-
+    } // Result yasash
+    const result = [];
+    for (const student of students) {
+      const appartment = latestAppartmentsMap.get(student._id.toString());
+      if (appartment) {
+        result.push({ student, appartment });
+      }
+    } // Pagination
+    const total = result.length;
+    const totalPages = Math.ceil(total / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedData = result.slice(startIndex, endIndex);
     res.json({
       status: "success",
-      data: result,
+      data: paginatedData,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages,
+        nextPage: page < totalPages ? page + 1 : null,
+        prevPage: page > 1 ? page - 1 : null,
+      },
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({
-      status: "error",
-      message: "Serverda xatolik yuz berdi",
-    });
+    res
+      .status(500)
+      .json({ status: "error", message: "Serverda xatolik yuz berdi" });
   }
 });
 
