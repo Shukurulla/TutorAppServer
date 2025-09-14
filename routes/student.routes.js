@@ -436,4 +436,13 @@ router.get("/students/stats", authMiddleware, async (req, res) => {
   }
 });
 
+router.get("/students/all", async (req, res) => {
+  try {
+    const findAllStudents = await StudentModel.find();
+    res.status(200).json({ status: "success", data: findAllStudents });
+  } catch (error) {
+    res.status(500).json({ status: "success", message: error.message });
+  }
+});
+
 export default router;
