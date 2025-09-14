@@ -493,66 +493,138 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
     let { page = 1, limit = 20 } = req.query;
     page = parseInt(page);
     limit = parseInt(limit);
+
+    // Status validation
     if (!["red", "yellow", "green", "blue"].includes(status)) {
       return res
         .status(401)
         .json({ status: "error", message: "Bunday status mavjud emas" });
     }
-    const findTutor = await tutorModel.findById(userId).lean();
+
+    // Parallel queries for better performance
+    const queryStatus = status === "blue" ? "Being checked" : status;
+
+    const [findTutor, activePermission] = await Promise.all([
+      tutorModel.findById(userId).select("group").lean(),
+      permissionModel
+        .findOne({
+          tutorId: userId,
+          status: "process",
+        })
+        .select("_id")
+        .lean(),
+    ]);
+
     if (!findTutor) {
       return res
         .status(400)
         .json({ status: "error", message: "Bunday tutor topilmadi" });
-    } // tutor group nomlari
-    //
+    }
 
-    const tutorGroups = findTutor.group.map((g) => g.name); // faqat kerakli fieldlarni olish
-    const students = await StudentModel.find({
-      "group.name": { $in: tutorGroups },
-    })
-      .select(
-        "full_name image faculty group province gender department specialty"
-      )
-      .lean();
-    if (!students.length) {
+    if (!activePermission) {
       return res
         .status(400)
-        .json({
-          status: "error",
-          message: "Bu guruhlarda studentlar topilmadi",
-        });
+        .json({ status: "error", message: "Active permission topilmadi" });
     }
-    const studentIds = students.map((s) => s._id);
-    const queryStatus = status === "blue" ? "Being checked" : status;
-    const activePermission = await permissionModel.findOne({
-      tutorId: userId,
-      status: "process",
-    }); // barcha kerakli appartments
-    const appartments = await AppartmentModel.find({
-      studentId: { $in: studentIds },
-      typeAppartment: "tenant",
-      permission: activePermission._id.toString(),
-      status: queryStatus,
-    }).sort({ createdAt: -1 }); // oxirgilarni oldin .lean(); // Har bir student uchun eng so‘nggi appartmentni olish
-    const latestAppartmentsMap = new Map();
-    for (const appartment of appartments) {
-      const key = appartment.studentId.toString();
-      if (!latestAppartmentsMap.has(key)) {
-        latestAppartmentsMap.set(key, appartment);
-      }
-    } // Result yasash
-    const result = [];
-    for (const student of students) {
-      const appartment = latestAppartmentsMap.get(student._id.toString());
-      if (appartment) {
-        result.push({ student, appartment });
-      }
-    } // Pagination
-    const total = result.length;
+
+    const tutorGroups = findTutor.group.map((g) => g.name);
+
+    // Aggregation pipeline for optimized query
+    const result = await StudentModel.aggregate([
+      // Match students in tutor's groups
+      {
+        $match: {
+          "group.name": { $in: tutorGroups },
+        },
+      },
+      // Project only needed fields
+      {
+        $project: {
+          full_name: 1,
+          image: 1,
+          faculty: 1,
+          group: 1,
+          province: 1,
+          gender: 1,
+          department: 1,
+          specialty: 1,
+        },
+      },
+      // Lookup latest apartment for each student
+      {
+        $lookup: {
+          from: "appartments", // collection name (odatda lowercase va plural)
+          let: {
+            studentId: "$_id",
+            permissionId: activePermission._id.toString(),
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$studentId", { $toString: "$$studentId" }] },
+                    { $eq: ["$typeAppartment", "tenant"] },
+                    { $eq: ["$permission", "$$permissionId"] },
+                    { $eq: ["$status", queryStatus] },
+                  ],
+                },
+              },
+            },
+            { $sort: { createdAt: -1 } },
+            { $limit: 1 },
+          ],
+          as: "appartment",
+        },
+      },
+      // Filter out students without apartments
+      {
+        $match: {
+          appartment: { $ne: [] },
+        },
+      },
+      // Unwind apartment array
+      {
+        $unwind: "$appartment",
+      },
+      // Format the output
+      {
+        $project: {
+          student: {
+            _id: "$_id",
+            full_name: "$full_name",
+            image: "$image",
+            faculty: "$faculty",
+            group: "$group",
+            province: "$province",
+            gender: "$gender",
+            department: "$department",
+            specialty: "$specialty",
+          },
+          appartment: 1,
+        },
+      },
+      // Sort by apartment creation date
+      {
+        $sort: { "appartment.createdAt": -1 },
+      },
+      // Pagination
+      {
+        $facet: {
+          metadata: [{ $count: "total" }],
+          data: [{ $skip: (page - 1) * limit }, { $limit: limit }],
+        },
+      },
+    ]);
+
+    // Extract data and metadata
+    const total = result[0].metadata[0]?.total || 0;
     const totalPages = Math.ceil(total / limit);
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedData = result.slice(startIndex, endIndex);
+    const paginatedData = result[0].data.map((item) => ({
+      student: item.student,
+      appartment: item.appartment,
+    }));
+
     res.json({
       status: "success",
       data: paginatedData,
