@@ -582,6 +582,46 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
   }
 });
 
+router.get(
+  "/appartment/status/:status/:group",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { status, group } = req.params;
+      const { userId } = req.userData;
+      const findTutor = await tutorModel.findById(userId);
+
+      if (!findTutor) {
+        return res
+          .status(401)
+          .json({ status: "error", message: "Bunday tutor topilmadi" });
+      }
+
+      const findStudents = await StudentModel.find({
+        "group.id": group,
+      }).select("_id");
+
+      if (findStudents.length == 0) {
+        return res.status(300).json({
+          status: "success",
+          message:
+            "Sizning guruhlaringizda bu status boyicha studentlar topilmadi",
+        });
+      }
+
+      const studentIds = findStudents.map((s) => s._id.toString());
+
+      const findAppartments = await AppartmentModel.find({
+        studentId: { $in: studentIds },
+      });
+
+      res.status(200).json({ status: "success", data: findAppartments });
+    } catch (error) {
+      res.status(500).json({ status: "error", message: error.message });
+    }
+  }
+);
+
 router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
