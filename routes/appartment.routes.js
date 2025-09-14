@@ -486,39 +486,10 @@ router.get("/appartment/all-delete", async (req, res) => {
   }
 });
 
-router.get("/appartment/new/:id", authMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const findStudent = await StudentModel.findById(id).select("_id");
-
-    if (!findStudent) {
-      return res
-        .status(401)
-        .json({ status: "error", message: "Bunday student topilmadi" });
-    }
-
-    const findAppartment = await AppartmentModel.find({
-      studentId: id,
-      status: "Being checked",
-    });
-
-    res.json({ status: "success", data: findAppartment });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ status: "error", message: "Serverda xatolik yuz berdi" });
-  }
-});
-
 router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
     const { status } = req.params;
-    let { page = 1, limit = 20 } = req.query;
-
-    page = parseInt(page);
-    limit = parseInt(limit);
 
     if (!["red", "yellow", "green", "blue"].includes(status)) {
       return res.status(401).json({
@@ -535,10 +506,8 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
       });
     }
 
-    // tutor group nomlari
     const tutorGroups = findTutor.group.map((g) => g.name);
 
-    // faqat kerakli fieldlarni olish
     const students = await StudentModel.find({
       "group.name": { $in: tutorGroups },
     })
@@ -562,59 +531,138 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
       status: "process",
     });
 
-    // barcha kerakli appartments
+    if (!activePermission) {
+      return res.status(400).json({
+        status: "error",
+        message: "Faol permission topilmadi",
+      });
+    }
+
+    // Appartmentlarni indexlab olish (studentId => true)
     const appartments = await AppartmentModel.find({
       studentId: { $in: studentIds },
       typeAppartment: "tenant",
       permission: activePermission._id.toString(),
-
       status: queryStatus,
-    })
-      .sort({ createdAt: -1 }) // oxirgilarni oldin
-      .lean();
+    }).lean();
 
-    // Har bir student uchun eng so‘nggi appartmentni olish
-    const latestAppartmentsMap = new Map();
-    for (const appartment of appartments) {
-      const key = appartment.studentId.toString();
-      if (!latestAppartmentsMap.has(key)) {
-        latestAppartmentsMap.set(key, appartment);
-      }
+    const appartmentsMap = new Map();
+    for (const app of appartments) {
+      appartmentsMap.set(app.studentId.toString(), true);
     }
 
-    // Result yasash
-    const result = [];
+    // Guruh bo‘yicha count
+    const groupCountMap = new Map();
     for (const student of students) {
-      const appartment = latestAppartmentsMap.get(student._id.toString());
-      if (appartment) {
-        result.push({
-          student,
-          appartment,
-        });
+      const groupName = student.group.name; // 1 ta group bo‘lsa
+      if (!groupCountMap.has(groupName)) groupCountMap.set(groupName, 0);
+
+      if (appartmentsMap.has(student._id.toString())) {
+        groupCountMap.set(groupName, groupCountMap.get(groupName) + 1);
       }
     }
 
-    // Pagination
-    const total = result.length;
-    const totalPages = Math.ceil(total / limit);
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedData = result.slice(startIndex, endIndex);
+    const result = Array.from(groupCountMap.entries()).map(
+      ([groupName, count]) => ({
+        groupName,
+        count,
+      })
+    );
 
     res.json({
       status: "success",
-      data: paginatedData,
-      pagination: {
-        total,
-        page,
-        limit,
-        totalPages,
-        nextPage: page < totalPages ? page + 1 : null,
-        prevPage: page > 1 ? page - 1 : null,
-      },
+      data: result,
     });
   } catch (error) {
     console.error(error);
+    res.status(500).json({
+      status: "error",
+      message: "Serverda xatolik yuz berdi",
+    });
+  }
+});
+
+router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.userData;
+    const { status } = req.params;
+
+    const validStatuses = ["red", "yellow", "green", "blue"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Bunday status mavjud emas",
+      });
+    }
+
+    const findTutor = await tutorModel.findById(userId).lean();
+    if (!findTutor) {
+      return res.status(400).json({
+        status: "error",
+        message: "Bunday tutor topilmadi",
+      });
+    }
+
+    const tutorGroups = findTutor.group.map((g) => g.name);
+
+    const activePermission = await permissionModel.findOne({
+      tutorId: userId,
+      status: "process",
+    });
+
+    if (!activePermission) {
+      return res.status(400).json({
+        status: "error",
+        message: "Faol permission topilmadi",
+      });
+    }
+
+    const queryStatus = status === "blue" ? "Being checked" : status;
+
+    const result = await AppartmentModel.aggregate([
+      {
+        $match: {
+          typeAppartment: "tenant",
+          permission: new mongoose.Types.ObjectId(activePermission._id), // <-- BU TO‘G‘RI
+          status: queryStatus,
+        },
+      },
+      {
+        $lookup: {
+          from: "students",
+          localField: "studentId",
+          foreignField: "_id",
+          as: "student",
+        },
+      },
+      { $unwind: "$student" },
+      {
+        $match: {
+          "student.group.name": { $in: tutorGroups },
+        },
+      },
+      { $unwind: "$student.group" },
+      {
+        $group: {
+          _id: "$student.group.name",
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          groupName: "$_id",
+          count: 1,
+        },
+      },
+    ]);
+
+    res.json({
+      status: "success",
+      data: result,
+    });
+  } catch (error) {
+    console.error("Appartment status router error:", error);
     res.status(500).json({
       status: "error",
       message: "Serverda xatolik yuz berdi",
