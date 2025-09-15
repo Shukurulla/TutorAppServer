@@ -41,9 +41,9 @@ router.post("/notification/report", authMiddleware, async (req, res) => {
       status: "blue",
     });
 
-    for (let i = 0; i < findBlueNotification.length; i++) {
-      await NotificationModel.findByIdAndDelete(findBlueNotification[i]._id);
-    }
+    const notificationIds = findBlueNotification.map((n) => n._id.toString());
+
+    await NotificationModel.deleteMany({ _id: { $in: notificationIds } });
 
     const notification = await NotificationModel.create({
       message,
