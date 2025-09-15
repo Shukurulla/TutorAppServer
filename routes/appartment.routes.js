@@ -195,6 +195,13 @@ router.post(
         await NotificationModel.create({
           userId: studentId,
           notification_type: "push",
+          message: "Ijara malumotlari tekshirildi",
+          status: "green",
+          appartmentId: appartment._id,
+        });
+        await NotificationModel.create({
+          userId: studentId,
+          notification_type: "report",
           message: "Tabriklaymiz siz yashil zonadasiz",
           status: "green",
           appartmentId: appartment._id,
@@ -238,11 +245,22 @@ router.post(
           updatedAt: appartment.updatedAt,
         };
 
-        await NotificationModel.deleteMany({ userId: studentId });
+        await NotificationModel.deleteMany({
+          userId: studentId,
+          status: "Being checked",
+        });
+        await NotificationModel.deleteMany({
+          userId: studentId,
+          status: "red",
+        });
+        await NotificationModel.deleteMany({
+          userId: studentId,
+          status: "yellow",
+        });
         await NotificationModel.create({
           userId: studentId,
           notification_type: "report",
-          message: "Tabriklaymiz siz yashil zonadasiz",
+          message: "Ijara malumotlari tekshirildi",
           status: "green",
           appartmentId: appartment._id,
         });
