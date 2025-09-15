@@ -793,7 +793,8 @@ router.get(
     try {
       const { userId } = req.userData;
 
-      const findTutor = await tutorModel.findById(userId);
+      // 1️⃣ Tutorni olish
+      const findTutor = await tutorModel.findById(userId).lean();
       if (!findTutor) {
         return res.status(400).json({
           status: "error",
@@ -801,13 +802,15 @@ router.get(
         });
       }
 
-      // Tutor guruhlarini olish
+      // 2️⃣ Tutor guruhlarini olish
       const tutorGroups = findTutor.group.map((g) => g.name);
 
-      // Shu guruhlardagi studentlarni olish
+      // 3️⃣ Shu guruhlardagi studentlarni olish
       const findStudents = await StudentModel.find({
         "group.name": { $in: tutorGroups },
-      }).select("_id");
+      })
+        .select("_id")
+        .lean(); // lean() tezroq ishlaydi
 
       if (!findStudents.length) {
         return res.json({
@@ -815,52 +818,42 @@ router.get(
         });
       }
 
-      const findActivePermission = await permissionModel.findOne({
-        tutorId: findTutor._id,
-        status: "process",
-      });
+      // 4️⃣ Active permissionni olish
+      const findActivePermission = await permissionModel
+        .findOne({ tutorId: findTutor._id, status: "process" })
+        .lean();
 
       if (!findActivePermission) {
         return res.status(200).json({
           status: "success",
           statistics: {
-            green: {
-              percent: "0%",
-              total: 0,
-            },
-            yellow: {
-              percent: "0%",
-              total: 0,
-            },
-            red: {
-              percent: "0%",
-              total: 0,
-            },
-            blue: {
-              percent: "0%",
-              total: 0,
-            },
+            green: { percent: "0%", total: 0 },
+            yellow: { percent: "0%", total: 0 },
+            red: { percent: "0%", total: 0 },
+            blue: { percent: "0%", total: 0 },
           },
         });
       }
 
-      // studentId larni string qilib olish
-      const studentIds = findStudents.map((s) => String(s._id));
+      // 5️⃣ StudentId larni olish (ObjectId tarzida)
+      const studentIds = findStudents.map((s) => s._id);
 
-      // Aggregation bilan oxirgi appartmentlarni olish
+      // 6️⃣ Aggregation bilan oxirgi appartmentlarni olish
       const studentAppartments = await AppartmentModel.aggregate([
         {
           $match: {
             studentId: { $in: studentIds },
             typeAppartment: "tenant",
-            permission: findActivePermission._id.toString(),
+            permission: findActivePermission._id,
           },
         },
-        { $sort: { createdAt: -1 } },
+        {
+          $sort: { createdAt: -1 }, // oxirgi yaratilgan appartment birinchi
+        },
         {
           $group: {
             _id: "$studentId",
-            latestAppartment: { $first: "$$ROOT" },
+            latestAppartment: { $first: "$$ROOT" }, // faqat oxirgi
           },
         },
       ]);
@@ -872,7 +865,7 @@ router.get(
         });
       }
 
-      // Statistikalar hisoblash
+      // 7️⃣ Statistikalarni hisoblash
       const totalCount = studentAppartments.length;
       const statusCounts = studentAppartments.reduce(
         (acc, { latestAppartment }) => {
@@ -906,6 +899,7 @@ router.get(
         },
       };
 
+      // 8️⃣ Natijani yuborish
       res.status(200).json({
         status: "success",
         statistics: statusPercentages,
