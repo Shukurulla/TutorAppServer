@@ -12,6 +12,7 @@ router.post("/permission-create", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
 
+    // 1️⃣ Tutorni olish
     const findTutor = await tutorModel.findById(userId).lean();
     if (!findTutor) {
       return res
@@ -19,16 +20,16 @@ router.post("/permission-create", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "Bunday tutor topilmadi" });
     }
 
-    // Avvalgi 'process' permissionlarni finished qilish
+    // 2️⃣ Avvalgi "process" permissionlarni finished qilish
     await permissionModel.updateMany(
       { tutorId: userId, status: "process" },
       { status: "finished" }
     );
 
-    // Yangi permission yaratish
+    // 3️⃣ Yangi permission yaratish
     const permission = await permissionModel.create({ tutorId: userId });
 
-    // Barcha tutor guruhlari bo‘yicha studentlarni bitta queryda olish
+    // 4️⃣ Barcha tutor guruhlari bo‘yicha studentlarni bitta queryda olish
     const groupCodes = findTutor.group.map((g) => g.code);
 
     const students = await StudentModel.find({
@@ -46,27 +47,25 @@ router.post("/permission-create", authMiddleware, async (req, res) => {
 
     const studentIds = students.map((s) => s._id.toString());
 
-    // 🔹 Barcha eski notificationlarni bitta queryda o‘chirish
+    // 5️⃣ Eski notificationlarni bitta queryda o‘chirish
     await NotificationModel.deleteMany({
       userId: { $in: studentIds },
       notification_type: "report",
       status: { $in: ["red", "yellow", "blue"] },
     });
 
-    // 🔹 Notificationlar massivini yaratish
+    // 6️⃣ Notificationlarni bulk yaratish
     const notifications = studentIds.map((id) => ({
       userId: id,
       status: "red",
       notification_type: "report",
-      permission: permission._id,
+      permission: permission._id.toString(),
       message: "Ijara ma'lumotlarini qayta jo'nating",
     }));
 
-    // 🔹 Bulk insert
-    if (notifications.length > 0) {
-      const created = await NotificationModel.insertMany(notifications);
-      console.log("✅ Yaralgan notificationlar soni:", created.length);
-    }
+    await NotificationModel.insertMany(notifications);
+
+    console.log("✅ Yaralgan notificationlar soni:", notifications.length);
 
     res.status(200).json({ status: "success", data: permission });
   } catch (error) {

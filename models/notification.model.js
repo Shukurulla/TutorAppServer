@@ -39,4 +39,10 @@ const notificationSchema = new mongoose.Schema(
 
 const NotificationModel = mongoose.model("notification", notificationSchema);
 
+NotificationModel.collection.createIndex({
+  userId: 1,
+  notification_type: 1,
+  status: 1,
+});
+
 export default NotificationModel;

@@ -147,4 +147,6 @@ const appartmentSchema = new mongoose.Schema(
 
 const AppartmentModel = mongoose.model("appartment", appartmentSchema);
 
+AppartmentModel.collection.createIndex({ permission: 1, studentId: 1 });
+
 export default AppartmentModel;
