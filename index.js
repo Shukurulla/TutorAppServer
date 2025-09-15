@@ -25,6 +25,7 @@ import StudentModel from "./models/student.model.js";
 import axios from "axios";
 import { autoRefreshStudentData } from "./utils/refreshData.js";
 import PermissionRouter from "./routes/permission.routes.js";
+import permissionModel from "./models/permission.model.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -50,7 +51,6 @@ app.use(
     origin: "*",
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-requested-with"],
   })
 );
 
@@ -143,10 +143,6 @@ app.use(ChatRouter);
 app.use("/tutor-notification", TutorNotificationRouter);
 app.use("/permission", PermissionRouter);
 app.use("/faculty-admin", FacultyAdminRouter); // YANGI ROUTE QOSHILDI
-
-app.get("/", async (req, res) => {
-  res.json({ message: "Server is running successfully" });
-});
 
 app.get("/get-banners", async (req, res) => {
   const arrBanner = [

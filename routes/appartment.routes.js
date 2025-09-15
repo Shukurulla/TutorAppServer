@@ -80,17 +80,24 @@ router.post(
           ? req.files?.additionImage[0]
           : null;
 
+        // Original filename va extension bilan
+        const getFileUrl = (file) =>
+          `/public/images/${file.filename}${
+            file.originalname.includes(".")
+              ? ""
+              : "." + file.originalname.split(".").pop()
+          }`;
+
         const newAppartment = new AppartmentModel({
           studentId,
-          boilerImage: { url: `/public/images/${boilerImage.filename}` },
-          gazStove: { url: `/public/images/${gazStove.filename}` },
-          chimney: { url: `/public/images/${chimney.filename}` },
-          additionImage:
-            additionImage !== null
-              ? { url: `/public/images/${additionImage?.filename}` }
-              : null,
+          boilerImage: { url: getFileUrl(boilerImage) },
+          gazStove: { url: getFileUrl(gazStove) },
+          chimney: { url: getFileUrl(chimney) },
+          additionImage: additionImage
+            ? { url: getFileUrl(additionImage) }
+            : null,
           needNew: false,
-          current: true, // Yangi appartment current bo'ladi
+          current: true,
           location: {
             lat: req.body.lat,
             long: req.body.lon,
@@ -569,8 +576,7 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
       permission: activePermission._id.toString(),
 
       status: queryStatus,
-    })
-      .sort({ createdAt: -1 }) // oxirgilarni oldin
+    }) // oxirgilarni oldin
       .lean();
 
     // Har bir student uchun eng so‘nggi appartmentni olish

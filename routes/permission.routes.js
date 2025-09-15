@@ -311,4 +311,13 @@ router.post("/special", authMiddleware, async (req, res) => {
   }
 });
 
+router.get("/clear", async (req, res) => {
+  try {
+    await permissionModel.deleteMany();
+    res.json({ message: "permissionlar tozalandi" });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
 export default router;
