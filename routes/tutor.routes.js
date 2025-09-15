@@ -836,7 +836,7 @@ router.get(
       }
 
       // 5️⃣ StudentId larni olish (ObjectId tarzida)
-      const studentIds = findStudents.map((s) => s._id);
+      const studentIds = findStudents.map((s) => s._id.toString());
 
       // 6️⃣ Aggregation bilan oxirgi appartmentlarni olish
       const studentAppartments = await AppartmentModel.aggregate([
@@ -844,7 +844,7 @@ router.get(
           $match: {
             studentId: { $in: studentIds },
             typeAppartment: "tenant",
-            permission: findActivePermission._id,
+            permission: findActivePermission._id.toString(),
           },
         },
         {
