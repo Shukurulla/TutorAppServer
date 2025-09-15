@@ -12,77 +12,60 @@ router.post("/permission-create", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
 
-    const findTutor = await tutorModel.findById(userId);
-
+    const findTutor = await tutorModel.findById(userId).lean();
     if (!findTutor) {
       return res
         .status(400)
         .json({ status: "error", message: "Bunday tutor topilmadi" });
     }
 
+    // Avvalgi 'process' permissionlarni finished qilish
     await permissionModel.updateMany(
-      {
-        tutorId: userId,
-        status: "process",
-      },
-      {
-        status: "finished",
-      }
+      { tutorId: userId, status: "process" },
+      { status: "finished" }
     );
 
-    // Permission yaratish
+    // Yangi permission yaratish
     const permission = await permissionModel.create({ tutorId: userId });
 
-    // Har bir guruh uchun notificationlarni yig‘ish
-    const allNotifications = await Promise.all(
-      findTutor.group.map(async (group) => {
-        const students = await StudentModel.find({
-          "group.id": `${group.code}`,
-        }).select("_id");
+    // Barcha tutor guruhlari bo‘yicha studentlarni bitta queryda olish
+    const groupCodes = findTutor.group.map((g) => g.code);
 
-        const studentIds = students.map((st) => st._id);
+    const students = await StudentModel.find({
+      "group.id": { $in: groupCodes },
+    })
+      .select("_id")
+      .lean();
 
-        await NotificationModel.deleteMany({
-          notification_type: "report",
-          status: "red",
-          userId: { $in: studentIds },
-          message: "Ijara ma'lumotlarini qayta jo'nating",
-        });
-
-        await NotificationModel.deleteMany({
-          notification_type: "report",
-          status: "blue",
-          userId: { $in: studentIds },
-        });
-        await NotificationModel.deleteMany({
-          notification_type: "report",
-          status: "yellow",
-          userId: { $in: studentIds },
-        });
-
-        if (students.length === 0) return [];
-
-        return students.map((student) => ({
-          userId: student._id.toString(),
-          status: "red",
-          notification_type: "report",
-          permission: permission._id,
-          message: "Ijara ma'lumotlarini qayta jo'nating",
-        }));
-      })
-    );
-
-    // Ichma-ich massivlarni bitta massivga aylantirish
-    const notifications = allNotifications.flat();
-
-    // Notificationlarni yaratish
-    if (notifications.length > 0) {
-      const created = await NotificationModel.insertMany(notifications);
-      console.log("✅ Yaralgan notificationlar soni:", created.length);
-    } else {
+    if (!students.length) {
       console.log(
         "⚠️ Hech qanday student topilmadi, notification yaratilmaydi"
       );
+      return res.status(200).json({ status: "success", data: permission });
+    }
+
+    const studentIds = students.map((s) => s._id.toString());
+
+    // 🔹 Barcha eski notificationlarni bitta queryda o‘chirish
+    await NotificationModel.deleteMany({
+      userId: { $in: studentIds },
+      notification_type: "report",
+      status: { $in: ["red", "yellow", "blue"] },
+    });
+
+    // 🔹 Notificationlar massivini yaratish
+    const notifications = studentIds.map((id) => ({
+      userId: id,
+      status: "red",
+      notification_type: "report",
+      permission: permission._id,
+      message: "Ijara ma'lumotlarini qayta jo'nating",
+    }));
+
+    // 🔹 Bulk insert
+    if (notifications.length > 0) {
+      const created = await NotificationModel.insertMany(notifications);
+      console.log("✅ Yaralgan notificationlar soni:", created.length);
     }
 
     res.status(200).json({ status: "success", data: permission });
