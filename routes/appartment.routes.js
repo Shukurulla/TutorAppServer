@@ -26,10 +26,11 @@ router.post(
 
       // Studentning current appartmenti bor-yo'qligini tekshirish
 
-      if (!studentId) {
-        return res
-          .status(401)
-          .json({ status: "error", message: "studentId kiritilmagan" });
+      if (!studentId || studentId === "undefined" || studentId.trim() === "") {
+        return res.status(401).json({
+          status: "error",
+          message: "studentId kiritilmagan",
+        });
       }
 
       const findStudent = await StudentModel.findById(studentId);
