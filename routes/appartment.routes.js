@@ -567,6 +567,9 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
       });
     }
 
+    // tutorning guruh kodlari
+    const tutorGroupCodes = findTutor.group.map((g) => g.code);
+
     // tutorning process dagi permissioni
     const activePermission = await permissionModel
       .findOne({
@@ -591,23 +594,39 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
       permission: activePermission._id.toString(),
       status: queryStatus,
     })
-      .populate(
-        "studentId",
-        "full_name image faculty group province gender department specialty"
-      ) // student fieldlarini olish
+      .populate("studentId", "group")
       .lean();
+
+    if (!appartments.length) {
+      return res.json({
+        status: "success",
+        data: [],
+      });
+    }
+
+    // Guruhlar bo‘yicha hisoblash
+    const groupCounts = {};
+
+    for (const app of appartments) {
+      const student = app.studentId;
+      if (student?.group?.id && tutorGroupCodes.includes(student.group.id)) {
+        const groupName = student.group.name;
+        if (!groupCounts[groupName]) {
+          groupCounts[groupName] = new Set(); // unique studentlarni hisoblash uchun
+        }
+        groupCounts[groupName].add(student._id.toString());
+      }
+    }
+
+    // Natijani formatlash
+    const result = Object.keys(groupCounts).map((groupName) => ({
+      groupName,
+      countStudents: groupCounts[groupName].size,
+    }));
 
     res.json({
       status: "success",
-      data: appartments,
-      pagination: {
-        total: appartments.length,
-        page: 1,
-        limit: 40,
-        totalPages: Math.floor(appartments.length / 40),
-        nextPage: 1,
-        prevPage: 1,
-      },
+      data: result,
     });
   } catch (error) {
     console.error(error);
