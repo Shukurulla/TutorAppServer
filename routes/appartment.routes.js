@@ -26,7 +26,7 @@ router.post(
 
       // Studentning current appartmenti bor-yo'qligini tekshirish
 
-      if (!studentId || typeof studentId == undefined) {
+      if (!studentId) {
         return res
           .status(401)
           .json({ status: "error", message: "studentId kiritilmagan" });
