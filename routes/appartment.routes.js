@@ -600,6 +600,14 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
     res.json({
       status: "success",
       data: appartments,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages,
+        nextPage: page < totalPages ? page + 1 : null,
+        prevPage: page > 1 ? page - 1 : null,
+      },
     });
   } catch (error) {
     console.error(error);
