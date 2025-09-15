@@ -16,11 +16,21 @@ const ChatSchema = new mongoose.Schema(
         // Bir necha guruh uchun array
         id: {
           type: Number,
-          required: true,
+          // required: true,
+          default: null,
         },
         name: {
           type: String,
-          required: true,
+          // required: true,
+          default: null,
+        },
+      },
+    ],
+    students: [
+      {
+        id: {
+          type: String,
+          default: null,
         },
       },
     ],
