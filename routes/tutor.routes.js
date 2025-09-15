@@ -425,10 +425,6 @@ router.get("/tutor/groups", authMiddleware, async (req, res) => {
 router.get("/tutor/students-group/:group", authMiddleware, async (req, res) => {
   try {
     const { group } = req.params;
-    const { page = 1, limit = 100 } = req.query; // Ko'proq student ko'rsatish uchun limit oshirdik
-
-    const pageNumber = Math.max(1, parseInt(page, 10) || 1);
-    const limitNumber = Math.max(1, parseInt(limit, 10) || 100);
 
     console.log("📋 Getting students for group:", group);
 
@@ -437,60 +433,16 @@ router.get("/tutor/students-group/:group", authMiddleware, async (req, res) => {
       $or: [{ "group.name": group }, { "group.id": group }],
     };
 
-    // Studentlar soni
-    const totalCount = await StudentModel.countDocuments(filter);
-    const totalPages = Math.ceil(totalCount / limitNumber);
-
-    // Appartmentlarni olish
-    const findAppartments = await AppartmentModel.find()
-      .select("status studentId location typeAppartment")
-      .lean();
-
     // Studentlarni olish
     const findStudents = await StudentModel.find(filter)
       .select(
         "group province gender department specialty level full_name short_name first_name second_name third_name image"
       )
-      .skip((pageNumber - 1) * limitNumber)
-      .limit(limitNumber)
       .lean();
-
-    // Studentlarga status qo'shish
-    const studentsWithStatus = findStudents.map((student) => {
-      // Eng oxirgi appartmentni topish
-      const studentAppartments = findAppartments
-        .filter((apt) => apt.studentId.toString() === student._id.toString())
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-      const latestAppartment = studentAppartments[0];
-
-      return {
-        ...student,
-        status: latestAppartment
-          ? latestAppartment.status === "Being checked"
-            ? "blue"
-            : latestAppartment.status
-          : "blue",
-        location: latestAppartment?.location || null,
-        hasFormFilled: latestAppartment ? "true" : "false",
-      };
-    });
-
-    console.log(
-      `✅ Found ${studentsWithStatus.length} students in group ${group}`
-    );
 
     res.json({
       status: "success",
-      page: pageNumber,
-      limit: limitNumber,
-      totalStudents: totalCount,
-      totalPages: totalPages,
-      hasNextPage: pageNumber < totalPages,
-      hasPrevPage: pageNumber > 1,
-      nextPage: pageNumber < totalPages ? pageNumber + 1 : null,
-      prevPage: pageNumber > 1 ? pageNumber - 1 : null,
-      data: studentsWithStatus,
+      data: findStudents,
     });
   } catch (error) {
     console.error("❌ Get group students error:", error);
