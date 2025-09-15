@@ -567,8 +567,11 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
       });
     }
 
-    // tutorning guruh kodlari
-    const tutorGroupCodes = findTutor.group.map((g) => g.code);
+    // tutorning guruhlari (id va name bilan)
+    const tutorGroups = findTutor.group.map((g) => ({
+      code: g.code, // group code
+      name: g.name, // group name
+    }));
 
     // tutorning process dagi permissioni
     const activePermission = await permissionModel
@@ -597,31 +600,24 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
       .populate("studentId", "group")
       .lean();
 
-    if (!appartments.length) {
-      return res.json({
-        status: "success",
-        data: [],
-      });
-    }
-
     // Guruhlar bo‘yicha hisoblash
     const groupCounts = {};
-
     for (const app of appartments) {
       const student = app.studentId;
-      if (student?.group?.id && tutorGroupCodes.includes(student.group.id)) {
-        const groupName = student.group.name;
-        if (!groupCounts[groupName]) {
-          groupCounts[groupName] = new Set(); // unique studentlarni hisoblash uchun
+      if (student?.group?.id) {
+        const groupCode = student.group.id; // student group id (bizda tutorGroup.code bilan solishtiriladi)
+        if (!groupCounts[groupCode]) {
+          groupCounts[groupCode] = new Set();
         }
-        groupCounts[groupName].add(student._id.toString());
+        groupCounts[groupCode].add(student._id.toString());
       }
     }
 
-    // Natijani formatlash
-    const result = Object.keys(groupCounts).map((groupName) => ({
-      groupName,
-      countStudents: groupCounts[groupName].size,
+    // Natija: tutor guruhlari bo‘yicha
+    const result = tutorGroups.map((g) => ({
+      groupCode: g.code,
+      groupName: g.name,
+      countStudents: groupCounts[g.code] ? groupCounts[g.code].size : 0,
     }));
 
     res.json({
@@ -636,6 +632,45 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
     });
   }
 });
+
+router.get(
+  "/appartment/status/:status/:groupId",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { status, groupId } = req.params;
+
+      const { userId } = req.userData;
+
+      const findActivePermission = await permissionModel
+        .findOne({ status: "process", tutorId: userId })
+        .select("_id");
+
+      if (!findActivePermission) {
+        return res.status(400).json({
+          status: "error",
+          message: "Hozirda active ruxsatnomalar mavjud emas",
+        });
+      }
+
+      const findStudents = await StudentModel.find({
+        "group.id": groupId,
+      }).select("_id");
+
+      const studentIds = findStudents.map((s) => s._id.toString());
+
+      const findAppartments = await AppartmentModel.find({
+        permission: findActivePermission._id.toString(),
+        status,
+        studentId: { $in: studentIds },
+      });
+
+      res.status(200).json({ status: "success", data: findAppartments });
+    } catch (error) {
+      res.status(500).json({ status: "error", message: error.message });
+    }
+  }
+);
 
 router.get(
   "/appartment/my-appartments/:id",
