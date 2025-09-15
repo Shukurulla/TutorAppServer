@@ -25,6 +25,14 @@ router.post(
       const { studentId, typeAppartment, permission } = req.body;
 
       // Studentning current appartmenti bor-yo'qligini tekshirish
+
+      const findStudent = await StudentModel.findById(studentId);
+      if (!findStudent) {
+        return res
+          .status(401)
+          .json({ status: "error", message: "Bunday student topilmadi" });
+      }
+
       const currentAppartment = await AppartmentModel.findOne({
         studentId,
         current: true,
