@@ -92,12 +92,12 @@ router.post("/permission-create", authMiddleware, async (req, res) => {
   }
 });
 
+// GET /my-permissions
 router.get("/my-permissions", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
 
-    const findTutor = await tutorModel.findById(userId);
-
+    const findTutor = await tutorModel.findById(userId).lean();
     if (!findTutor) {
       return res
         .status(400)
@@ -107,23 +107,38 @@ router.get("/my-permissions", authMiddleware, async (req, res) => {
     // tutor permissionlarini olish
     const findPermissions = await permissionModel
       .find({ tutorId: userId })
-      .select("_id status createdAt");
+      .select("_id status createdAt")
+      .lean();
 
-    // har bir permission uchun Appartmentlarni yig‘ish
-    const fullData = await Promise.all(
-      findPermissions.map(async (perm) => {
-        const findAppartment = await AppartmentModel.countDocuments({
-          permission: perm._id.toString(),
-        });
+    if (!findPermissions.length) {
+      return res.status(200).json({ status: "success", data: [] });
+    }
 
-        return {
-          _id: perm._id,
-          date: perm.createdAt,
-          countDocuments: findAppartment, // nechta hujjat
-          status: perm.status,
-        };
-      })
-    );
+    // Appartmentlar sonini bitta aggregation bilan olish
+    const permissionIds = findPermissions.map((p) => p._id.toString());
+
+    const counts = await AppartmentModel.aggregate([
+      { $match: { permission: { $in: permissionIds } } },
+      {
+        $group: {
+          _id: "$permission",
+          countDocuments: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // map qilib count ni qo‘shish
+    const fullData = findPermissions.map((perm) => {
+      const found = counts.find(
+        (c) => c._id.toString() === perm._id.toString()
+      );
+      return {
+        _id: perm._id,
+        date: perm.createdAt,
+        countDocuments: found ? found.countDocuments : 0,
+        status: perm.status,
+      };
+    });
 
     res.status(200).json({ status: "success", data: fullData });
   } catch (error) {
@@ -132,49 +147,73 @@ router.get("/my-permissions", authMiddleware, async (req, res) => {
   }
 });
 
+// GET /:permissionId
 router.get("/:permissionId", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
     const { permissionId } = req.params;
 
-    const findTutor = await tutorModel.findById(userId);
+    const findTutor = await tutorModel.findById(userId).lean();
     if (!findTutor) {
       return res
         .status(400)
         .json({ status: "error", message: "Bunday tutor topilmadi" });
     }
 
-    const permission = await permissionModel.findById(permissionId);
+    const permission = await permissionModel.findById(permissionId).lean();
     if (!permission) {
       return res
         .status(400)
         .json({ status: "error", message: "Bunday permission topilmadi" });
     }
 
-    // map ichidagi async funksiyalarni await bilan ishlatish
-    const fullData = await Promise.all(
-      findTutor.group.map(async (gr) => {
-        // Guruhdagi studentlarni olish
-        const findStudents = await StudentModel.find({
-          "group.id": `${gr.code}`,
-        }).select("_id");
+    // Barcha tutor guruhlari bo‘yicha studentlarni bitta queryda olish
+    const groupCodes = findTutor.group.map((g) => g.code);
 
-        // Student _id larini massivga olish
-        const studentIds = findStudents.map((s) => `${s._id}`);
+    const students = await StudentModel.find({
+      "group.id": { $in: groupCodes },
+    })
+      .select("_id group")
+      .lean();
 
-        // Appartmentlar sonini hisoblash
-        const countStudents = await AppartmentModel.countDocuments({
+    if (!students.length) {
+      return res.status(200).json({ status: "success", data: [] });
+    }
+
+    // Appartmentlarni aggregation bilan hisoblash
+    const studentIds = students.map((s) => s._id.toString());
+
+    const counts = await AppartmentModel.aggregate([
+      {
+        $match: {
           studentId: { $in: studentIds },
           permission: permission._id.toString(),
-        });
+        },
+      },
+      {
+        $group: {
+          _id: "$studentId",
+          countDocuments: { $sum: 1 },
+        },
+      },
+    ]);
 
-        return {
-          groupName: gr.name,
-          code: gr.code,
-          countDocuments: countStudents,
-        };
-      })
-    );
+    // har bir guruh bo‘yicha summani olish
+    const fullData = findTutor.group.map((g) => {
+      const studentInGroup = students
+        .filter((s) => s.group.id === g.code)
+        .map((s) => s._id.toString());
+
+      const countDocuments = counts
+        .filter((c) => studentInGroup.includes(c._id.toString()))
+        .reduce((acc, c) => acc + c.countDocuments, 0);
+
+      return {
+        groupName: g.name,
+        code: g.code,
+        countDocuments,
+      };
+    });
 
     res.status(200).json({ status: "success", data: fullData });
   } catch (error) {
