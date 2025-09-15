@@ -601,19 +601,19 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
       status: "success",
       data: appartments,
       pagination: {
-        total,
-        page,
-        limit,
-        totalPages,
-        nextPage: page < totalPages ? page + 1 : null,
-        prevPage: page > 1 ? page - 1 : null,
+        total: 0,
+        page: 0,
+        limit: 0,
+        totalPages: 0,
+        nextPage: 1,
+        prevPage: 1,
       },
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({
       status: "error",
-      message: "Serverda xatolik yuz berdi",
+      message: error.message,
     });
   }
 });
