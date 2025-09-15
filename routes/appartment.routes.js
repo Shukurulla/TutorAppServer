@@ -549,11 +549,8 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
     const { status } = req.params;
-    let { page = 1, limit = 20 } = req.query;
 
-    page = parseInt(page);
-    limit = parseInt(limit);
-
+    // faqat to'g'ri statuslar
     if (!["red", "yellow", "green", "blue"].includes(status)) {
       return res.status(401).json({
         status: "error",
@@ -561,6 +558,7 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
       });
     }
 
+    // tutor bormi?
     const findTutor = await tutorModel.findById(userId).lean();
     if (!findTutor) {
       return res.status(400).json({
@@ -569,82 +567,39 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
       });
     }
 
-    // tutor group nomlari
-    const tutorGroups = findTutor.group.map((g) => g.name);
-
-    // faqat kerakli fieldlarni olish
-    const students = await StudentModel.find({
-      "group.name": { $in: tutorGroups },
-    })
-      .select(
-        "full_name image faculty group province gender department specialty"
-      )
+    // tutorning process dagi permissioni
+    const activePermission = await permissionModel
+      .findOne({
+        tutorId: userId,
+        status: "process",
+      })
       .lean();
 
-    if (!students.length) {
+    if (!activePermission) {
       return res.status(400).json({
         status: "error",
-        message: "Bu guruhlarda studentlar topilmadi",
+        message: "Process holatidagi permission topilmadi",
       });
     }
 
-    const studentIds = students.map((s) => s._id);
+    // statusni to‘g‘rilash
     const queryStatus = status === "blue" ? "Being checked" : status;
 
-    const activePermission = await permissionModel.findOne({
-      tutorId: userId,
-      status: "process",
-    });
-
-    // barcha kerakli appartments
+    // Appartmentlarni olish
     const appartments = await AppartmentModel.find({
-      studentId: { $in: studentIds },
       typeAppartment: "tenant",
       permission: activePermission._id.toString(),
-
       status: queryStatus,
-    }) // oxirgilarni oldin
+    })
+      .populate(
+        "studentId",
+        "full_name image faculty group province gender department specialty"
+      ) // student fieldlarini olish
       .lean();
-
-    // Har bir student uchun eng so‘nggi appartmentni olish
-    const latestAppartmentsMap = new Map();
-    for (const appartment of appartments) {
-      const key = appartment.studentId.toString();
-      if (!latestAppartmentsMap.has(key)) {
-        latestAppartmentsMap.set(key, appartment);
-      }
-    }
-
-    // Result yasash
-    const result = [];
-    for (const student of students) {
-      const appartment = latestAppartmentsMap.get(student._id.toString());
-      if (appartment) {
-        result.push({
-          student,
-          appartment,
-        });
-      }
-    }
-
-    // Pagination
-    const total = result.length;
-    const totalPages = Math.ceil(total / limit);
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedData = result.slice(startIndex, endIndex);
 
     res.json({
       status: "success",
-      data: paginatedData,
-      pagination: {
-        total,
-        page,
-        limit,
-        totalPages,
-        nextPage: page < totalPages ? page + 1 : null,
-        prevPage: page > 1 ? page - 1 : null,
-      },
+      data: appartments,
     });
   } catch (error) {
     console.error(error);

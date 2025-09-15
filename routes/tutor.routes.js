@@ -793,7 +793,7 @@ router.get(
     try {
       const { userId } = req.userData;
 
-      // 1️⃣ Tutorni olish
+      // 1️⃣ Tutor bormi?
       const findTutor = await tutorModel.findById(userId).lean();
       if (!findTutor) {
         return res.status(400).json({
@@ -802,23 +802,7 @@ router.get(
         });
       }
 
-      // 2️⃣ Tutor guruhlarini olish
-      const tutorGroups = findTutor.group.map((g) => g.name);
-
-      // 3️⃣ Shu guruhlardagi studentlarni olish
-      const findStudents = await StudentModel.find({
-        "group.name": { $in: tutorGroups },
-      })
-        .select("_id")
-        .lean(); // lean() tezroq ishlaydi
-
-      if (!findStudents.length) {
-        return res.json({
-          message: "Sizning guruhingizdagi studentlar hali mavjud emas",
-        });
-      }
-
-      // 4️⃣ Active permissionni olish
+      // 2️⃣ Active permissionni olish
       const findActivePermission = await permissionModel
         .findOne({ tutorId: findTutor._id, status: "process" })
         .lean();
@@ -832,40 +816,43 @@ router.get(
             red: { percent: "0%", total: 0 },
             blue: { percent: "0%", total: 0 },
           },
+          total: 0,
         });
       }
 
-      // 5️⃣ StudentId larni olish (ObjectId tarzida)
-      const studentIds = findStudents.map((s) => s._id.toString());
-
-      // 6️⃣ Aggregation bilan oxirgi appartmentlarni olish
+      // 3️⃣ Oxirgi appartments (har bir student uchun)
       const studentAppartments = await AppartmentModel.aggregate([
         {
           $match: {
-            studentId: { $in: studentIds },
             typeAppartment: "tenant",
             permission: findActivePermission._id.toString(),
           },
         },
-        {
-          $sort: { createdAt: -1 }, // oxirgi yaratilgan appartment birinchi
-        },
+        { $sort: { createdAt: -1 } }, // eng oxirgilari oldinda
         {
           $group: {
             _id: "$studentId",
-            latestAppartment: { $first: "$$ROOT" }, // faqat oxirgi
+            latestAppartment: { $first: "$$ROOT" },
           },
         },
       ]);
 
       if (!studentAppartments.length) {
         return res.json({
+          status: "success",
           message:
-            "Sizning guruhingizdagi studentlar hali ijara ma'lumotlarini qo'shmagan",
+            "Sizning studentlaringiz hali ijara ma'lumotlarini qo'shmagan",
+          statistics: {
+            green: { percent: "0%", total: 0 },
+            yellow: { percent: "0%", total: 0 },
+            red: { percent: "0%", total: 0 },
+            blue: { percent: "0%", total: 0 },
+          },
+          total: 0,
         });
       }
 
-      // 7️⃣ Statistikalarni hisoblash
+      // 4️⃣ Statistikani hisoblash
       const totalCount = studentAppartments.length;
       const statusCounts = studentAppartments.reduce(
         (acc, { latestAppartment }) => {
@@ -899,7 +886,7 @@ router.get(
         },
       };
 
-      // 8️⃣ Natijani yuborish
+      // 5️⃣ Natijani yuborish
       res.status(200).json({
         status: "success",
         statistics: statusPercentages,
