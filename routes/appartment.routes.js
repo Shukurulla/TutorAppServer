@@ -642,6 +642,8 @@ router.get(
 
       const { userId } = req.userData;
 
+      const configStatus = status == "blue" ? "Being checked" : status;
+
       const findActivePermission = await permissionModel
         .findOne({ status: "process", tutorId: userId })
         .select("_id");
@@ -661,7 +663,7 @@ router.get(
 
       const findAppartments = await AppartmentModel.find({
         permission: findActivePermission._id.toString(),
-        status,
+        status: configStatus,
         studentId: { $in: studentIds },
       });
 
