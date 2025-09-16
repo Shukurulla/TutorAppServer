@@ -641,7 +641,6 @@ router.get(
   async (req, res) => {
     try {
       const { status, groupId } = req.params;
-
       const { userId } = req.userData;
 
       const configStatus = status == "blue" ? "Being checked" : status;
@@ -657,29 +656,34 @@ router.get(
         });
       }
 
+      // Studentlarni topamiz
       const findStudents = await StudentModel.find({
         "group.id": groupId,
-      }).select(
-        "_id university full_name short_name first_name second_name third_name gender image province speciality level"
-      );
+      }).select("_id");
 
-      const studentIds = findStudents.map((s) => s._id.toString());
+      const studentIds = findStudents.map((s) => s._id);
 
+      // Appartmentlarni student bilan birga populate qilamiz
       const findAppartments = await AppartmentModel.find({
         permission: findActivePermission._id.toString(),
         status: configStatus,
         studentId: { $in: studentIds },
-      }).select("_id -bedroom ");
+      })
+        .populate(
+          "studentId",
+          "university full_name short_name first_name second_name third_name gender image province specialty level"
+        )
+        .select("-bedroom");
 
-      const data = findAppartments.map((a) => {
-        return {
-          student: findStudents.find((c) => c._id == a.studentId),
-          appartment: findAppartments.find((c) => c._id == a._id),
-        };
+      res.status(200).json({
+        status: "success",
+        data: findAppartments.map((a) => ({
+          student: a.studentId,
+          appartment: a,
+        })),
       });
-
-      res.status(200).json({ status: "success", data: data });
     } catch (error) {
+      console.error("❌ Router error:", error);
       res.status(500).json({ status: "error", message: error.message });
     }
   }
