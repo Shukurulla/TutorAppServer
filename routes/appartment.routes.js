@@ -688,8 +688,7 @@ router.get(
         permission: findActivePermission._id.toString(),
         status: configStatus,
         studentId: { $in: studentIds },
-      })
-      .select("-bedroom");
+      }).select("-bedroom");
 
       res.status(200).json({
         status: "success",
