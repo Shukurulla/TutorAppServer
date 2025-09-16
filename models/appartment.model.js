@@ -2,10 +2,11 @@ import mongoose from "mongoose";
 const appartmentSchema = new mongoose.Schema(
   {
     studentId: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "student",
       default: null,
     },
+
     studentPhoneNumber: {
       type: String,
       default: null,

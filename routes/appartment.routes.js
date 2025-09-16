@@ -544,7 +544,6 @@ router.get("/appartment/new/:id", authMiddleware, async (req, res) => {
       .json({ status: "error", message: "Serverda xatolik yuz berdi" });
   }
 });
-
 router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
@@ -567,13 +566,13 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
       });
     }
 
-    // Tutor guruhlari (id va name bilan)
+    // Tutor guruhlari
     const tutorGroups = findTutor.group.map((g) => ({
-      code: g.code, // group code
-      name: g.name, // group name
+      code: g.code?.toString(),
+      name: g.name,
     }));
 
-    // Tutorning process dagi permissioni
+    // Tutor permissioni
     const activePermission = await permissionModel
       .findOne({
         tutorId: userId,
@@ -591,13 +590,13 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
     // Statusni to‘g‘rilash
     const queryStatus = status === "blue" ? "Being checked" : status;
 
-    // Appartmentlarni olish + studentni populate qilish
+    // Appartmentlarni olish
     const appartments = await AppartmentModel.find({
       typeAppartment: "tenant",
       permission: activePermission._id.toString(),
       status: queryStatus,
     })
-      .populate("studentId", "group") // faqat group keladi
+      .populate("studentId", "group")
       .lean();
 
     // Guruhlar bo‘yicha hisoblash
@@ -605,20 +604,23 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
     for (const app of appartments) {
       const student = app.studentId;
       if (student?.group?.id) {
-        const groupCode = student.group.id; // student group id
-        if (!groupCounts[groupCode]) {
-          groupCounts[groupCode] = new Set();
+        const studentGroupCode = student.group.id.toString();
+
+        if (!groupCounts[studentGroupCode]) {
+          groupCounts[studentGroupCode] = new Set();
         }
-        groupCounts[groupCode].add(student._id.toString());
+        groupCounts[studentGroupCode].add(student._id.toString());
       }
     }
 
-    // Natija: tutor guruhlari bo‘yicha
-    const result = tutorGroups.map((g) => ({
-      groupCode: g.code,
-      groupName: g.name,
-      countStudents: groupCounts[g.code] ? groupCounts[g.code].size : 0,
-    }));
+    // Tutor guruhlarini natija qilib qaytarish (faqat count > 0 bo‘lsa)
+    const result = tutorGroups
+      .map((tg) => ({
+        code: tg.code,
+        groupName: tg.name,
+        countStudents: groupCounts[tg.code] ? groupCounts[tg.code].size : 0,
+      }))
+      .filter((g) => g.countStudents > 0); // <-- 0 bo‘lsa chiqmaydi
 
     res.json({
       status: "success",
