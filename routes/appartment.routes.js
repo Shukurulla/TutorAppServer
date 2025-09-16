@@ -520,34 +520,32 @@ router.get("/appartment/all-delete", async (req, res) => {
   }
 });
 
-router.get(
-  "/appartment/new/:permissionId/:id",
-  authMiddleware,
-  async (req, res) => {
-    try {
-      const { id, permissionId } = req.params;
+router.get("/appartment/new/:id", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
 
-      const findStudent = await StudentModel.findById(id).select("_id");
+    const permissionId = req.body?.permissionId ? req.body.permissionId : "";
 
-      if (!findStudent) {
-        return res
-          .status(401)
-          .json({ status: "error", message: "Bunday student topilmadi" });
-      }
+    const findStudent = await StudentModel.findById(id).select("_id");
 
-      const findAppartment = await AppartmentModel.find({
-        studentId: id,
-        permission: permissionId,
-      });
-
-      res.json({ status: "success", data: findAppartment });
-    } catch (error) {
-      res
-        .status(500)
-        .json({ status: "error", message: "Serverda xatolik yuz berdi" });
+    if (!findStudent) {
+      return res
+        .status(401)
+        .json({ status: "error", message: "Bunday student topilmadi" });
     }
+
+    const findAppartment = await AppartmentModel.find({
+      studentId: id,
+      permission: permissionId,
+    });
+
+    res.json({ status: "success", data: findAppartment });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ status: "error", message: "Serverda xatolik yuz berdi" });
   }
-);
+});
 router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
