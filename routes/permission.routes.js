@@ -6,6 +6,7 @@ import NotificationModel from "../models/notification.model.js";
 import StudentModel from "../models/student.model.js";
 import AppartmentModel from "../models/appartment.model.js";
 import moment from "moment";
+import mongoose from "mongoose";
 
 const router = express.Router();
 router.post("/permission-create", authMiddleware, async (req, res) => {
