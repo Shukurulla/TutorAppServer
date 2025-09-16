@@ -229,9 +229,7 @@ router.get("/:permissionId/:groupId", authMiddleware, async (req, res) => {
     const findAppartments = await AppartmentModel.find({
       permission: permissionId,
       studentId: { $in: studentIds },
-    })
-      .select("_id studentId permission status")
-      .lean();
+    }).lean();
 
     // Har bir appartment uchun student ma'lumotini olish
     const data = await Promise.all(
