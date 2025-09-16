@@ -523,8 +523,24 @@ router.get("/appartment/all-delete", async (req, res) => {
 router.get("/appartment/new/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
+    const { userId } = req.userData;
 
-    const permissionId = req.body?.permissionId ? req.body.permissionId : "";
+    const findTutor = await tutorModel.findById(userId);
+
+    if (!findTutor) {
+      return res
+        .status(401)
+        .json({ status: "error", message: "Bunday tutor topilmadi" });
+    }
+
+    const activePermission = await permissionModel.findOne({
+      tutorId: findTutor._id,
+      status: "process",
+    });
+
+    const permissionId = req.body?.permissionId
+      ? req.body.permissionId
+      : activePermission;
 
     const findStudent = await StudentModel.findById(id).select("_id");
 
