@@ -523,6 +523,15 @@ router.get("/appartment/all-delete", async (req, res) => {
 router.get("/appartment/new/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
+    const { userId } = req.userData;
+
+    const findTutor = await tutorModel.findById(userId);
+
+    if (!findTutor) {
+      return res
+        .status(401)
+        .json({ status: "error", message: "bunday tutor topilmadi" });
+    }
 
     const findStudent = await StudentModel.findById(id).select("_id");
 
@@ -532,9 +541,20 @@ router.get("/appartment/new/:id", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "Bunday student topilmadi" });
     }
 
+    const findActivePermission = await permissionModel.findOne({
+      tutorId: findTutor._id,
+      status: "process",
+    });
+
+    if (!findActivePermission) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Active ruxsatnoma topilmadi" });
+    }
+
     const findAppartment = await AppartmentModel.find({
       studentId: id,
-      status: "Being checked",
+      permission: findActivePermission._id,
     });
 
     res.json({ status: "success", data: findAppartment });
