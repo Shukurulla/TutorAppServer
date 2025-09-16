@@ -657,7 +657,9 @@ router.get(
 
       const findStudents = await StudentModel.find({
         "group.id": groupId,
-      }).select("_id");
+      }).select(
+        "_id university full_name short_name first_name second_name third_name gender image province speciality level"
+      );
 
       const studentIds = findStudents.map((s) => s._id.toString());
 
@@ -665,9 +667,16 @@ router.get(
         permission: findActivePermission._id.toString(),
         status: configStatus,
         studentId: { $in: studentIds },
+      }).select("_id -bedroom ");
+
+      const data = findAppartments.map((a) => {
+        return {
+          student: findStudents.find((c) => c._id == a.studentId),
+          appartment: findAppartments.find((c) => c._id == a._id),
+        };
       });
 
-      res.status(200).json({ status: "success", data: findAppartments });
+      res.status(200).json({ status: "success", data: data });
     } catch (error) {
       res.status(500).json({ status: "error", message: error.message });
     }
