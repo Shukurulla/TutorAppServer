@@ -550,7 +550,7 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
     const { userId } = req.userData;
     const { status } = req.params;
 
-    // faqat to'g'ri statuslar
+    // Faqat to‘g‘ri statuslar
     if (!["red", "yellow", "green", "blue"].includes(status)) {
       return res.status(401).json({
         status: "error",
@@ -558,7 +558,7 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
       });
     }
 
-    // tutor bormi?
+    // Tutor bormi?
     const findTutor = await tutorModel.findById(userId).lean();
     if (!findTutor) {
       return res.status(400).json({
@@ -567,13 +567,13 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
       });
     }
 
-    // tutorning guruhlari (id va name bilan)
+    // Tutor guruhlari (id va name bilan)
     const tutorGroups = findTutor.group.map((g) => ({
       code: g.code, // group code
       name: g.name, // group name
     }));
 
-    // tutorning process dagi permissioni
+    // Tutorning process dagi permissioni
     const activePermission = await permissionModel
       .findOne({
         tutorId: userId,
@@ -588,16 +588,16 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
       });
     }
 
-    // statusni to‘g‘rilash
+    // Statusni to‘g‘rilash
     const queryStatus = status === "blue" ? "Being checked" : status;
 
-    // Appartmentlarni olish
+    // Appartmentlarni olish + studentni populate qilish
     const appartments = await AppartmentModel.find({
       typeAppartment: "tenant",
       permission: activePermission._id.toString(),
       status: queryStatus,
     })
-      .populate("studentId", "group")
+      .populate("studentId", "group") // faqat group keladi
       .lean();
 
     // Guruhlar bo‘yicha hisoblash
@@ -605,7 +605,7 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
     for (const app of appartments) {
       const student = app.studentId;
       if (student?.group?.id) {
-        const groupCode = student.group.id; // student group id (bizda tutorGroup.code bilan solishtiriladi)
+        const groupCode = student.group.id; // student group id
         if (!groupCounts[groupCode]) {
           groupCounts[groupCode] = new Set();
         }
@@ -625,7 +625,7 @@ router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
       data: result,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Appartment status router error:", error);
     res.status(500).json({
       status: "error",
       message: error.message,

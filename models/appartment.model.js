@@ -3,6 +3,7 @@ const appartmentSchema = new mongoose.Schema(
   {
     studentId: {
       type: String,
+      ref: "student",
       default: null,
     },
     studentPhoneNumber: {
