@@ -520,50 +520,34 @@ router.get("/appartment/all-delete", async (req, res) => {
   }
 });
 
-router.get("/appartment/new/:id", authMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { userId } = req.userData;
+router.get(
+  "/appartment/new/:permissionId/:id",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { id, permissionId } = req.params;
 
-    const findTutor = await tutorModel.findById(userId);
+      const findStudent = await StudentModel.findById(id).select("_id");
 
-    if (!findTutor) {
-      return res
-        .status(401)
-        .json({ status: "error", message: "bunday tutor topilmadi" });
+      if (!findStudent) {
+        return res
+          .status(401)
+          .json({ status: "error", message: "Bunday student topilmadi" });
+      }
+
+      const findAppartment = await AppartmentModel.find({
+        studentId: id,
+        permission: permissionId,
+      });
+
+      res.json({ status: "success", data: findAppartment });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ status: "error", message: "Serverda xatolik yuz berdi" });
     }
-
-    const findStudent = await StudentModel.findById(id).select("_id");
-
-    if (!findStudent) {
-      return res
-        .status(401)
-        .json({ status: "error", message: "Bunday student topilmadi" });
-    }
-
-    const findActivePermission = await permissionModel.findOne({
-      tutorId: findTutor._id,
-      status: "process",
-    });
-
-    if (!findActivePermission) {
-      return res
-        .status(400)
-        .json({ status: "error", message: "Active ruxsatnoma topilmadi" });
-    }
-
-    const findAppartment = await AppartmentModel.find({
-      studentId: id,
-      permission: findActivePermission._id,
-    });
-
-    res.json({ status: "success", data: findAppartment });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ status: "error", message: "Serverda xatolik yuz berdi" });
   }
-});
+);
 router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
