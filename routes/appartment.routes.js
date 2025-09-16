@@ -677,7 +677,9 @@ router.get(
       // Studentlarni topamiz
       const findStudents = await StudentModel.find({
         "group.id": groupId,
-      }).select("_id");
+      }).select(
+        "university full_name short_name first_name second_name third_name gender image province specialty level"
+      );
 
       const studentIds = findStudents.map((s) => s._id);
 
@@ -687,16 +689,12 @@ router.get(
         status: configStatus,
         studentId: { $in: studentIds },
       })
-        .populate(
-          "studentId",
-          "university full_name short_name first_name second_name third_name gender image province specialty level"
-        )
-        .select("-bedroom");
+      .select("-bedroom");
 
       res.status(200).json({
         status: "success",
         data: findAppartments.map((a) => ({
-          student: a.studentId,
+          student: findStudents.find((s) => s._id == a.studentId.toString()),
           appartment: a,
         })),
       });
