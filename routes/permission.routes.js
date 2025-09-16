@@ -149,7 +149,7 @@ router.get("/:permissionId", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "Bunday permission topilmadi" });
     }
 
-    // Barcha tutor guruhlari bo‘yicha studentlarni bitta queryda olish
+    // Tutor guruhlari
     const groupCodes = findTutor.group.map((g) => g.code);
 
     const students = await StudentModel.find({
@@ -162,13 +162,13 @@ router.get("/:permissionId", authMiddleware, async (req, res) => {
       return res.status(200).json({ status: "success", data: [] });
     }
 
-    // Appartmentlarni aggregation bilan hisoblash
-    const studentIds = students.map((s) => s._id.toString());
+    // studentId larni ObjectId formatida olish
+    const studentIds = students.map((s) => new mongoose.Types.ObjectId(s._id));
 
     const counts = await AppartmentModel.aggregate([
       {
         $match: {
-          studentId: { $in: studentIds },
+          studentId: { $in: studentIds }, // ✅ endi ObjectId bo‘ldi
           permission: permission._id.toString(),
         },
       },
@@ -180,7 +180,7 @@ router.get("/:permissionId", authMiddleware, async (req, res) => {
       },
     ]);
 
-    // har bir guruh bo‘yicha summani olish
+    // har bir guruh bo‘yicha hisoblash
     const fullData = findTutor.group.map((g) => {
       const studentInGroup = students
         .filter((s) => s.group.id === g.code)
