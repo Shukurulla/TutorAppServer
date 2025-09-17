@@ -82,9 +82,6 @@ mongoose
   .then(async () => {
     console.log("✅ Database connected successfully");
 
-    await StudentModel.deleteMany();
-    autoRefreshStudentData();
-
     // Index allaqachon mavjud bo'lsa xatolik bermaydi
     try {
       const indexExists = await StudentModel.collection.indexExists(
