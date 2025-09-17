@@ -12,6 +12,7 @@ import { fileURLToPath } from "url";
 import NotificationModel from "../models/notification.model.js";
 import { uploadSingleImage } from "../middlewares/upload.middleware.js";
 import axios from "axios";
+import facultyAdminModel from "../models/faculty.admin.model.js";
 
 const router = express.Router();
 
@@ -624,7 +625,7 @@ router.get("/students/stats", authMiddleware, async (req, res) => {
 router.get("/students/all", async (req, res) => {
   try {
     // await StudentModel.deleteMany();
-    const findAllStudents = await StudentModel.find().limit(10);
+    const findAllStudents = await facultyAdminModel.find().limit(10);
     res.status(200).json({ status: "success", data: findAllStudents });
   } catch (error) {
     res.status(500).json({ status: "success", message: error.message });
