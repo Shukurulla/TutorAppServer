@@ -526,7 +526,6 @@ router.get("/appartment/new/:id", authMiddleware, async (req, res) => {
     const { userId } = req.userData;
 
     const findTutor = await tutorModel.findById(userId);
-
     if (!findTutor) {
       return res
         .status(401)
@@ -538,12 +537,17 @@ router.get("/appartment/new/:id", authMiddleware, async (req, res) => {
       status: "process",
     });
 
+    if (!activePermission) {
+      return res
+        .status(404)
+        .json({ status: "error", message: "Aktiv permission topilmadi" });
+    }
+
     const permissionId = req.body?.permissionId
       ? req.body.permissionId
-      : activePermission;
+      : activePermission._id.toString(); // 🔑
 
     const findStudent = await StudentModel.findById(id).select("_id");
-
     if (!findStudent) {
       return res
         .status(401)
@@ -552,16 +556,16 @@ router.get("/appartment/new/:id", authMiddleware, async (req, res) => {
 
     const findAppartment = await AppartmentModel.find({
       studentId: id,
-      permission: permissionId,
+      permission: permissionId, // endi mos keladi
     });
 
     res.json({ status: "success", data: findAppartment });
   } catch (error) {
-    res
-      .status(500)
-      .json({ status: "error", message: "Serverda xatolik yuz berdi" });
+    console.error(error);
+    res.status(500).json({ status: "error", message: error.message });
   }
 });
+
 router.get("/appartment/status/:status", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
