@@ -146,6 +146,6 @@ const studentSchema = new mongoose.Schema({
 });
 
 const StudentModel = mongoose.model("student", studentSchema);
-// StudentModel.collection.createIndex({ "group.id": 1 });
+StudentModel.collection.createIndex({ "group.id": 1 });
 
 export default StudentModel;

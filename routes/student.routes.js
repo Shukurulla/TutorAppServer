@@ -20,75 +20,89 @@ const __dirname = path.dirname(__filename);
 
 // Student ma'lumotlarini tozalash va formatlash funksiyasi
 router.post("/student/sign", async (req, res) => {
-  const { login, password } = req.body;
-
-  if (!login || !password) {
-    return res.status(400).json({
-      status: "error",
-      message: "Login va parol kiritish majburiy",
-    });
-  }
-
   try {
-    // HEMIS va local studentni parallel chaqiramiz
-    const [hemisResponse, findStudent] = await Promise.all([
-      axios
-        .post(
-          "https://student.karsu.uz/rest/v1/auth/login",
-          { login, password },
-          { timeout: 3000 } // ⏳ 1 sekunddan oshsa xato qaytaradi
-        )
-        .catch((err) => ({ error: err })),
+    const { login, password } = req.body;
 
-      StudentModel.findOne({ student_id_number: login }).lean(),
-    ]);
-
-    // ❌ agar HEMIS xato bo‘lsa
-    if (hemisResponse.error) {
-      if (hemisResponse.error.response?.status === 401) {
-        return res
-          .status(401)
-          .json({ status: "error", message: "Login yoki parol hato" });
-      }
-      return res.status(500).json({
+    if (!login || !password) {
+      return res.status(400).json({
         status: "error",
-        message: "HEMIS serverida xatolik: " + hemisResponse.error.message,
+        message: "Login va parol kiritish majburiy",
       });
     }
 
-    // ❌ agar HEMIS muvaffaqiyatsiz bo‘lsa
-    if (!hemisResponse.data.success) {
-      return res
-        .status(401)
-        .json({ status: "error", message: "Login yoki parol hato" });
-    }
+    // 1️⃣ HEMIS API tekshirish
+    // let hemisResponse;
+    // try {
+    //   hemisResponse = await axios.post(
+    //     "https://student.karsu.uz/rest/v1/auth/login",
+    //     { login, password },
+    //     { timeout: 3000 }
+    //   );
+    // } catch (err) {
+    //   if (err.response?.status === 401) {
+    //     return res.status(401).json({
+    //       status: "error",
+    //       message: err,
+    //     });
+    //   }
+    //   return res.status(500).json({
+    //     status: "error",
+    //     message: "HEMIS serverida xatolik: " + err.message,
+    //   });
+    // }
 
-    // ❌ agar student local bazada topilmasa
-    if (!findStudent) {
-      return res.status(404).json({
-        status: "error",
-        message:
-          "HEMIS login/parol to'g'ri, ammo local bazada bunday student topilmadi.",
-      });
-    }
+    // if (!hemisResponse.data?.success) {
+    //   return res.status(401).json({
+    //     status: "error",
+    //     message: "Login yoki parol noto‘g‘ri",
+    //   });
+    // }
 
-    // 🔍 Appartmentni tekshirish
-    const existAppartment = await AppartmentModel.findOne({
-      studentId: findStudent._id,
-    }).lean();
+    // // 2️⃣ Local DB da studentni qidirish
+    // const findStudent = await StudentModel.findOne({
+    //   $or: [
+    //     { student_id_number: Number(login) }, // agar number bo‘lsa
+    //     { student_id_number: login }, // agar string bo‘lsa
+    //   ],
+    // }).lean();
 
-    // 🔑 Token generatsiya
-    const token = generateToken(findStudent._id);
+    // if (!findStudent) {
+    //   return res.status(404).json({
+    //     status: "error",
+    //     message:
+    //       "HEMIS login/parol to‘g‘ri, ammo local bazada bunday student topilmadi.",
+    //   });
+    // }
 
-    return res.status(200).json({
-      status: "success",
-      student: {
-        ...findStudent,
-        existAppartment: !!existAppartment,
-      },
-      hemisData: null,
-      token,
-    });
+    // 3️⃣ Appartmentni tekshirish
+    // const existAppartment = await AppartmentModel.findOne({
+    //   studentId: findStudent._id,
+    // }).lean();
+
+    // 4️⃣ Token generatsiya
+    // const token = generateToken(findStudent._id);
+
+    // return res.status(200).json({
+    //   status: "success",
+    //   student: {
+    //     ...findStudent,
+    //     existAppartment: !!existAppartment,
+    //   },
+    //   hemisData: null, // agar HEMISdan qo‘shimcha data olish kerak bo‘lsa, qo‘shib qo‘yish mumkin
+    //   token,
+    // });
+
+    const findAllStudents = await StudentModel.find().select(
+      "student_id_number"
+    );
+
+    const findStudent = findAllStudents.find(
+      (c) => c.student_id_number == login
+    );
+
+    const student = await StudentModel.findById(findStudent._id);
+
+    res.status(200).json({ status: "success", data: student });
   } catch (error) {
     return res.status(500).json({
       status: "error",
@@ -439,9 +453,7 @@ router.get("/students/stats", authMiddleware, async (req, res) => {
 router.get("/students/all", async (req, res) => {
   try {
     // await StudentModel.deleteMany();
-    const findAllStudents = await StudentModel.find().select(
-      "student_id_number"
-    );
+    const findAllStudents = await StudentModel.find().limit(10);
     res.status(200).json({ status: "success", data: findAllStudents });
   } catch (error) {
     res.status(500).json({ status: "success", message: error.message });
