@@ -56,7 +56,12 @@ router.get("/admin/faculty-admins/search", authMiddleware, async (req, res) => {
 
 router.post("/admin/sign", async (req, res) => {
   try {
-    const admin = await adminModel.create(req.body);
+    const hashPassword = await bcrypt.hash(req.password, 10);
+    const admin = await adminModel.create({
+      ...req.body,
+      password: hashPassword,
+    });
+
     res.status(200).json({ status: "success", data: admin });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
