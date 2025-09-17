@@ -36,7 +36,7 @@ router.post("/student/sign", async (req, res) => {
         .post(
           "https://student.karsu.uz/rest/v1/auth/login",
           { login, password },
-          { timeout: 2000 } // ⏳ 1 sekunddan oshsa xato qaytaradi
+          { timeout: 3000 } // ⏳ 1 sekunddan oshsa xato qaytaradi
         )
         .catch((err) => ({ error: err })),
 
