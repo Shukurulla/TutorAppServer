@@ -57,7 +57,7 @@ router.get("/admin/faculty-admins/search", authMiddleware, async (req, res) => {
 router.post("/admin/sign", async (req, res) => {
   try {
     await adminModel.deleteMany();
-    const hashPassword = await bcrypt.hash(req.password, 10);
+    const hashPassword = await bcrypt.hash(req.body.password, 10);
     const admin = await adminModel.create({
       ...req.body,
       password: hashPassword,
