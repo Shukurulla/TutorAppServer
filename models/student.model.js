@@ -13,7 +13,7 @@ const studentSchema = new mongoose.Schema({
     name: String,
   },
   birth_date: Number,
-  student_id_number: { type: String, unique: true },
+  student_id_number: { type: Number, unique: true },
   image: String,
   avg_gpa: Number,
   avg_grade: Number,
@@ -146,6 +146,6 @@ const studentSchema = new mongoose.Schema({
 });
 
 const StudentModel = mongoose.model("student", studentSchema);
-StudentModel.collection.createIndex({ "group.id": 1 });
+// StudentModel.collection.createIndex({ "group.id": 1 });
 
 export default StudentModel;

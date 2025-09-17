@@ -26,6 +26,8 @@ import axios from "axios";
 import { autoRefreshStudentData } from "./utils/refreshData.js";
 import PermissionRouter from "./routes/permission.routes.js";
 import permissionModel from "./models/permission.model.js";
+import { fixExistingStudentData } from "./utils/fixStudentData.js";
+// import migrateStudents from "./utils/migration.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -78,6 +80,8 @@ mongoose
   .connect(mongo_url)
   .then(async () => {
     console.log("✅ Database connected successfully");
+    // migrateStudents();
+    // autoRefreshStudentData();
   })
   .catch((error) => {
     console.error("❌ Database connection error:", error);

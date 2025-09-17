@@ -438,8 +438,10 @@ router.get("/students/stats", authMiddleware, async (req, res) => {
 
 router.get("/students/all", async (req, res) => {
   try {
-    const findAllStudents = await StudentModel.find().limit(5000);
-
+    // await StudentModel.deleteMany();
+    const findAllStudents = await StudentModel.find().select(
+      "student_id_number"
+    );
     res.status(200).json({ status: "success", data: findAllStudents });
   } catch (error) {
     res.status(500).json({ status: "success", message: error.message });
