@@ -18,7 +18,6 @@ const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Student ma'lumotlarini tozalash va formatlash funksiyasi
 router.post("/student/sign", async (req, res) => {
   try {
     const { login, password } = req.body;
@@ -30,80 +29,252 @@ router.post("/student/sign", async (req, res) => {
       });
     }
 
-    // 1️⃣ HEMIS API tekshirish
-    // let hemisResponse;
-    // try {
-    //   hemisResponse = await axios.post(
-    //     "https://student.karsu.uz/rest/v1/auth/login",
-    //     { login, password },
-    //     { timeout: 3000 }
-    //   );
-    // } catch (err) {
-    //   if (err.response?.status === 401) {
-    //     return res.status(401).json({
-    //       status: "error",
-    //       message: err,
-    //     });
-    //   }
-    //   return res.status(500).json({
-    //     status: "error",
-    //     message: "HEMIS serverida xatolik: " + err.message,
-    //   });
-    // }
+    console.log("🔍 Login attempt:", login);
 
-    // if (!hemisResponse.data?.success) {
-    //   return res.status(401).json({
-    //     status: "error",
-    //     message: "Login yoki parol noto‘g‘ri",
-    //   });
-    // }
+    // 1️⃣ BIRINCHI - HEMIS orqali autentifikatsiya
+    let hemisResponse;
+    try {
+      console.log("📡 HEMIS ga so'rov yuborilmoqda...");
 
-    // // 2️⃣ Local DB da studentni qidirish
-    // const findStudent = await StudentModel.findOne({
-    //   $or: [
-    //     { student_id_number: Number(login) }, // agar number bo‘lsa
-    //     { student_id_number: login }, // agar string bo‘lsa
-    //   ],
-    // }).lean();
+      hemisResponse = await axios.post(
+        "https://student.karsu.uz/rest/v1/auth/login",
+        {
+          login: login.toString(),
+          password: password.toString(),
+        },
+        {
+          timeout: 10000,
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+        }
+      );
 
-    // if (!findStudent) {
-    //   return res.status(404).json({
-    //     status: "error",
-    //     message:
-    //       "HEMIS login/parol to‘g‘ri, ammo local bazada bunday student topilmadi.",
-    //   });
-    // }
+      console.log(
+        "✅ HEMIS javobi:",
+        hemisResponse.data?.success ? "Muvaffaqiyatli" : "Xato"
+      );
 
-    // 3️⃣ Appartmentni tekshirish
-    // const existAppartment = await AppartmentModel.findOne({
-    //   studentId: findStudent._id,
-    // }).lean();
+      // HEMIS login muvaffaqiyatsiz bo'lsa
+      if (!hemisResponse.data?.success) {
+        return res.status(401).json({
+          status: "error",
+          message: "Login yoki parol noto'g'ri",
+          hemisError: true,
+        });
+      }
+    } catch (hemisError) {
+      console.error("❌ HEMIS xatosi:", hemisError.message);
 
-    // 4️⃣ Token generatsiya
-    // const token = generateToken(findStudent._id);
+      // Agar HEMIS 401 xato qaytarsa - login/parol noto'g'ri
+      if (
+        hemisError.response?.status === 401 ||
+        hemisError.response?.status === 400
+      ) {
+        return res.status(401).json({
+          status: "error",
+          message: "Login yoki parol noto'g'ri",
+          hemisError: true,
+        });
+      }
 
-    // return res.status(200).json({
-    //   status: "success",
-    //   student: {
-    //     ...findStudent,
-    //     existAppartment: !!existAppartment,
-    //   },
-    //   hemisData: null, // agar HEMISdan qo‘shimcha data olish kerak bo‘lsa, qo‘shib qo‘yish mumkin
-    //   token,
-    // });
+      // Agar HEMIS server ishlamasa
+      if (
+        hemisError.code === "ECONNABORTED" ||
+        hemisError.code === "ETIMEDOUT"
+      ) {
+        return res.status(503).json({
+          status: "error",
+          message: "HEMIS serveriga ulanib bo'lmadi. Keyinroq urinib ko'ring",
+          hemisTimeout: true,
+        });
+      }
 
-    const findAllStudents = await StudentModel.find().select(
-      "student_id_number"
+      // Boshqa HEMIS xatolari
+      return res.status(500).json({
+        status: "error",
+        message: "HEMIS tizimida xatolik. Keyinroq urinib ko'ring",
+        hemisServiceError: true,
+      });
+    }
+
+    // 2️⃣ IKKINCHI - HEMIS muvaffaqiyatli bo'lsa, local bazadan studentni topish
+    console.log(
+      "✅ HEMIS autentifikatsiya muvaffaqiyatli, bazadan qidirilmoqda..."
     );
 
-    const findStudent = findAllStudents.find(
-      (c) => c.student_id_number == login
-    );
+    // Aggregation orqali qidirish (string/number muammosini hal qiladi)
+    const students = await StudentModel.aggregate([
+      {
+        $addFields: {
+          studentIdString: {
+            $toString: "$student_id_number",
+          },
+        },
+      },
+      {
+        $match: {
+          studentIdString: login.toString(),
+        },
+      },
+      {
+        $limit: 1,
+      },
+    ]);
 
-    const student = await StudentModel.findById(findStudent._id);
+    let findStudent = students[0] || null;
 
-    res.status(200).json({ status: "success", data: student });
+    // Agar topilmasa, alternativ usul
+    if (!findStudent) {
+      console.log("⚠️ Aggregation ishlamadi, alternativ qidiruv...");
+
+      const allStudents = await StudentModel.find()
+        .select("student_id_number")
+        .lean();
+
+      const foundStudent = allStudents.find((s) => {
+        const studentId = s.student_id_number;
+        return studentId == login || String(studentId) === String(login);
+      });
+
+      if (foundStudent) {
+        findStudent = await StudentModel.findById(foundStudent._id).lean();
+      }
+    }
+
+    // 3️⃣ Agar HEMIS da bor lekin local bazada yo'q bo'lsa
+    if (!findStudent) {
+      console.log("⚠️ HEMIS da mavjud, lekin local bazada topilmadi");
+
+      // HEMIS dan student ma'lumotlarini olishga urinish
+      if (hemisResponse?.data?.data) {
+        // Agar HEMIS student ma'lumotlarini qaytarsa
+        const hemisStudentData = hemisResponse.data.data;
+
+        return res.status(200).json({
+          status: "success",
+          message: "Student HEMIS da mavjud, lekin local bazada topilmadi",
+          student: {
+            student_id_number: login,
+            full_name: hemisStudentData.full_name || "Noma'lum",
+            fromHemis: true,
+            existAppartment: false,
+          },
+          hemisData: hemisStudentData,
+          token: null, // Token bermaymiz chunki local bazada yo'q
+          needsSync: true, // Adminlarga sync kerakligini ko'rsatish
+        });
+      }
+
+      return res.status(404).json({
+        status: "error",
+        message: "Student local bazada topilmadi. Admin bilan bog'laning",
+        hemisAuthenticated: true,
+        localNotFound: true,
+      });
+    }
+
+    console.log("✅ Student topildi:", findStudent.student_id_number);
+
+    // 4️⃣ Appartment mavjudligini tekshirish
+    let existAppartment = false;
+    try {
+      const apartment = await AppartmentModel.findOne({
+        studentId: findStudent._id,
+      }).lean();
+      existAppartment = !!apartment;
+      console.log("🏠 Appartment mavjudmi:", existAppartment);
+    } catch (error) {
+      console.error("Apartment check error:", error);
+    }
+
+    // 5️⃣ Token generatsiya
+    const token = generateToken(findStudent._id);
+
+    // 6️⃣ Muvaffaqiyatli javob
+    return res.status(200).json({
+      status: "success",
+      message: "Muvaffaqiyatli kirish",
+      student: {
+        ...findStudent,
+        existAppartment,
+      },
+      token,
+      hemisAuthenticated: true,
+    });
   } catch (error) {
+    console.error("❌ Student sign xatosi:", error);
+    return res.status(500).json({
+      status: "error",
+      message: "Serverda xatolik yuz berdi",
+      details: error.message,
+    });
+  }
+});
+
+// TEST UCHUN - HEMIS siz login (faqat development uchun)
+router.post("/student/sign-dev", async (req, res) => {
+  try {
+    const { login } = req.body;
+
+    if (!login) {
+      return res.status(400).json({
+        status: "error",
+        message: "Login kiritish majburiy",
+      });
+    }
+
+    console.log("🧪 DEV MODE - HEMIS siz login:", login);
+
+    // Aggregation orqali qidirish
+    const students = await StudentModel.aggregate([
+      {
+        $addFields: {
+          studentIdString: {
+            $toString: "$student_id_number",
+          },
+        },
+      },
+      {
+        $match: {
+          studentIdString: login.toString(),
+        },
+      },
+      {
+        $limit: 1,
+      },
+    ]);
+
+    const findStudent = students[0];
+
+    if (!findStudent) {
+      return res.status(404).json({
+        status: "error",
+        message: "Student topilmadi (DEV MODE)",
+      });
+    }
+
+    // Appartment tekshirish
+    const apartment = await AppartmentModel.findOne({
+      studentId: findStudent._id,
+    }).lean();
+
+    // Token generatsiya
+    const token = generateToken(findStudent._id);
+
+    return res.status(200).json({
+      status: "success",
+      message: "DEV MODE - Login muvaffaqiyatli",
+      student: {
+        ...findStudent,
+        existAppartment: !!apartment,
+      },
+      token,
+      devMode: true,
+    });
+  } catch (error) {
+    console.error("❌ DEV sign error:", error);
     return res.status(500).json({
       status: "error",
       message: error.message,

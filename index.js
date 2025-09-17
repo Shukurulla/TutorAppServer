@@ -76,12 +76,33 @@ app.use("/public", express.static(path.join(__dirname, "public")));
 const port = 7788;
 const mongo_url = process.env.MONGO_URI;
 
+// index.js - mongoose connect qismidan keyin
 mongoose
   .connect(mongo_url)
   .then(async () => {
     console.log("✅ Database connected successfully");
-    // migrateStudents();
-    // autoRefreshStudentData();
+
+    await StudentModel.deleteMany();
+    autoRefreshStudentData();
+
+    // Index allaqachon mavjud bo'lsa xatolik bermaydi
+    try {
+      const indexExists = await StudentModel.collection.indexExists(
+        "student_id_number_1"
+      );
+      if (!indexExists) {
+        await StudentModel.collection.createIndex({ student_id_number: 1 });
+
+        console.log("✅ Index created");
+      } else {
+        console.log("ℹ️ Index already exists");
+      }
+    } catch (error) {
+      // Index xatosini e'tiborsiz qoldirish
+      if (error.code !== 86) {
+        console.error("Index error:", error);
+      }
+    }
   })
   .catch((error) => {
     console.error("❌ Database connection error:", error);
