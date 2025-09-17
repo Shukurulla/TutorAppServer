@@ -625,7 +625,7 @@ router.get("/students/stats", authMiddleware, async (req, res) => {
 router.get("/students/all", async (req, res) => {
   try {
     // await StudentModel.deleteMany();
-    const findAllStudents = await facultyAdminModel.find().limit(10);
+    const findAllStudents = await adminModel.find().limit(10);
     res.status(200).json({ status: "success", data: findAllStudents });
   } catch (error) {
     res.status(500).json({ status: "success", message: error.message });
