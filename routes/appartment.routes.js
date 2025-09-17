@@ -543,8 +543,8 @@ router.get("/appartment/new/:id", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "Aktiv permission topilmadi" });
     }
 
-    const permissionId = req.body?.permissionId
-      ? req.body.permissionId
+    const permissionId = req.query?.permissionId
+      ? req.query.permissionId
       : activePermission._id.toString(); // 🔑
 
     const findStudent = await StudentModel.findById(id).select("_id");
