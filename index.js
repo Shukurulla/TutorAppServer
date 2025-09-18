@@ -119,7 +119,7 @@ io.on("connection", (socket) => {
 
   socket.on("sendMessage", async ({ tutorId, message, groupId }) => {
     try {
-      console.log({ tutorId, message });
+      console.log({ tutorId, message, groupId });
 
       const tutor = await tutorModel.findById(tutorId);
       console.log("tutor " + tutor);
