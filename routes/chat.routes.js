@@ -93,4 +93,53 @@ router.put("/messages/edit-message", authMiddleware, async (req, res) => {
   }
 });
 
+router.delete("/messages/delete/:groupId", authMiddleware, async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { userId } = req.userData;
+
+    const findTutor = await tutorModel.findById(userId);
+
+    if (!findTutor) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Bunday tutor topilmadi" });
+    }
+
+    const findGroup = findTutor.group.find(
+      (c) => String(c.code) === String(groupId)
+    );
+
+    if (!findGroup) {
+      return res.status(400).json({
+        status: "error",
+        message: "Sizda bunday guruh malumoti topilmadi",
+      });
+    }
+
+    // Shu guruhga tegishli barcha xabarlarni topish
+    const findGroupMessages = await chatModel.find({
+      "groups.id": Number(groupId),
+    });
+
+    if (!findGroupMessages.length) {
+      return res.status(404).json({
+        status: "error",
+        message: "Bu guruh uchun xabarlar topilmadi",
+      });
+    }
+
+    // O‘chirish
+    await chatModel.deleteMany({ "groups.id": Number(groupId) });
+
+    return res.json({
+      status: "success",
+      message: "Xabarlar muvaffaqiyatli o‘chirildi",
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ status: "error", message: "Server xatosi" });
+  }
+});
+
 export default router;

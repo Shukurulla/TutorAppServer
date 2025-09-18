@@ -1,4 +1,3 @@
-// chat.model.js - yangilangan versiya
 import mongoose from "mongoose";
 
 const ChatSchema = new mongoose.Schema(
@@ -13,15 +12,12 @@ const ChatSchema = new mongoose.Schema(
     },
     groups: [
       {
-        // Bir necha guruh uchun array
         id: {
           type: Number,
-          // required: true,
           default: null,
         },
         name: {
           type: String,
-          // required: true,
           default: null,
         },
       },
