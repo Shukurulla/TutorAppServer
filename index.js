@@ -117,20 +117,25 @@ io.on("connection", (socket) => {
     console.log(`Student ${studentId} ${roomName} ga qo'shildi`);
   });
 
-  socket.on("sendMessage", async ({ tutorId, message }) => {
+  socket.on("sendMessage", async ({ tutorId, message, groupId }) => {
     try {
       console.log({ tutorId, message });
 
       const tutor = await tutorModel.findById(tutorId);
       console.log(tutor);
 
+      const findGroup = tutor.group.find((c) => c.code == groupId);
+
+      if (!findGroup) {
+        return res
+          .status(400)
+          .json({ status: "error", message: "Sizda bunday guruh mavjud emas" });
+      }
+
       const newMessage = await chatModel.create({
         tutorId,
         message,
-        groups: tutor.group.map((group) => ({
-          id: group.code,
-          name: group.name,
-        })),
+        groups: [findGroup],
       });
 
       tutor.group.forEach((group) => {
