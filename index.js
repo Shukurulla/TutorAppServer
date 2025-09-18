@@ -122,10 +122,10 @@ io.on("connection", (socket) => {
       console.log({ tutorId, message });
 
       const tutor = await tutorModel.findById(tutorId);
-      console.log(tutor);
+      console.log("tutor " + tutor);
 
-      const findGroup = tutor.group.find((c) => c.code == groupId);
-      console.log(findGroup);
+      const findGroup = tutor.group.find((c) => c.code == groupId.toString());
+      console.log("group: " + findGroup);
 
       if (!findGroup) {
         return res
@@ -148,7 +148,7 @@ io.on("connection", (socket) => {
         });
       });
 
-      console.log(newMessage);
+      console.log("message: " + newMessage);
     } catch (error) {
       console.error("Xatolik sendMessage da:", error);
     }
