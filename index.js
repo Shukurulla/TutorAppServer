@@ -122,33 +122,41 @@ io.on("connection", (socket) => {
       console.log({ tutorId, message, groupId });
 
       const tutor = await tutorModel.findById(tutorId);
-      console.log("tutor " + tutor);
+      console.log("tutor:", tutor);
 
       const findGroup = tutor.group.find((c) => c.code == groupId.toString());
-      console.log("group: " + findGroup);
+      console.log("group:", findGroup);
 
       if (!findGroup) {
-        return res
-          .status(400)
-          .json({ status: "error", message: "Sizda bunday guruh mavjud emas" });
+        // ❌ socket handler ichida res ishlatib bo‘lmaydi
+        socket.emit("errorMessage", {
+          status: "error",
+          message: "Sizda bunday guruh mavjud emas",
+        });
+        return;
       }
+
+      // 🔑 id maydonini code bilan to‘ldiramiz
+      const groupData = {
+        id: findGroup.code,
+        name: findGroup.name,
+      };
 
       const newMessage = await chatModel.create({
         tutorId,
         message,
-        groups: [findGroup],
+        groups: [groupData],
       });
 
-      tutor.group.forEach((group) => {
-        socket.to(`group_${group.id}`).emit("receiveMessage", {
-          tutorId,
-          message,
-          group,
-          createdAt: newMessage.createdAt,
-        });
+      // Faqat shu group xonasiga yuborish
+      socket.to(`group_${groupData.id}`).emit("receiveMessage", {
+        tutorId,
+        message,
+        group: groupData,
+        createdAt: newMessage.createdAt,
       });
 
-      console.log("message: " + newMessage);
+      console.log("message:", newMessage);
     } catch (error) {
       console.error("Xatolik sendMessage da:", error);
     }
