@@ -124,7 +124,7 @@ io.on("connection", (socket) => {
       const tutor = await tutorModel.findById(tutorId);
       console.log(tutor);
 
-      const findGroup = tutor.group.find((c) => c.code == groupId);
+      const findGroup = tutor.group.findOne((c) => c.code == groupId);
 
       if (!findGroup) {
         return res
