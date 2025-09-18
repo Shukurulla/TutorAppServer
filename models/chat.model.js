@@ -26,14 +26,6 @@ const ChatSchema = new mongoose.Schema(
         },
       },
     ],
-    students: [
-      {
-        id: {
-          type: String,
-          default: null,
-        },
-      },
-    ],
   },
   {
     timestamps: true,

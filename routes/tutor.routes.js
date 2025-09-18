@@ -473,6 +473,7 @@ router.get("/tutor/profile", authMiddleware, async (req, res) => {
       const student = students.find((c) => c.group.name === item.name);
       return {
         name: item.name,
+        code: item.code,
         faculty: student ? student.department.name : "Noma'lum fakultet",
       };
     });
