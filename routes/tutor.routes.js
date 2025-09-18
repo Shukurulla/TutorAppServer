@@ -471,9 +471,11 @@ router.get("/tutor/profile", authMiddleware, async (req, res) => {
 
     const tutorFaculty = findTutor.group.map((item) => {
       const student = students.find((c) => c.group.name === item.name);
+
       return {
         name: item.name,
         code: item.code,
+        studentCount: students.filter((c) => c.group.id == item.code).length,
         faculty: student ? student.department.name : "Noma'lum fakultet",
       };
     });
