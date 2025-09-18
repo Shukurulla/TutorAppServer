@@ -40,7 +40,7 @@ router.get("/messages/by-group/:id", authMiddleware, async (req, res) => {
       .find({
         "groups.id": parseInt(req.params.id),
       })
-      .select("");
+      .select("-groups");
     res.json({ status: "success", data: findMessages });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
