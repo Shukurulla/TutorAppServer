@@ -161,7 +161,7 @@ router.get("/notification/report/:userId", async (req, res) => {
 
     res.json({
       status: "success",
-      data: findNotifications.reverse(),
+      data: findNotifications,
       length: allNotifications,
       unread: unreadNotifications,
     });

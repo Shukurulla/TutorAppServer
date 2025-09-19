@@ -44,8 +44,8 @@ router.post(
 
       const newAd = new adsModel({
         title,
-        image: `/public/ads/${imageFile.filename}`,
-        icon: iconFile ? `/public/ads/${iconFile.filename}` : "",
+        image: `public/ads/${imageFile.filename}`,
+        icon: iconFile ? `public/ads/${iconFile.filename}` : "",
       });
 
       await newAd.save();
