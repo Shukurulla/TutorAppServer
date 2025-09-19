@@ -21,7 +21,7 @@ const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
-router.post("/create", uploadAppartmentFiles, async (req, res) => {
+router.post("/appartment/create", uploadAppartmentFiles, async (req, res) => {
   try {
     const apartmentData = { ...req.body };
 
