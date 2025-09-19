@@ -6,7 +6,12 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import StudentModel from "../models/student.model.js";
 import tutorModel from "../models/tutor.model.js";
-import { uploadMultipleImages } from "../middlewares/upload.middleware.js";
+import {
+  uploadMultipleImages,
+  uploadAppartmentFiles,
+  uploadContractFiles,
+} from "../middlewares/upload.middleware.js";
+
 import NotificationModel from "../models/notification.model.js";
 import mongoose from "mongoose";
 import permissionModel from "../models/permission.model.js";
