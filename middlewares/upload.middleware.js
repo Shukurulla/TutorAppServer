@@ -124,14 +124,21 @@ export const uploadMultipleImages = multer({
   { name: "additionImage", maxCount: 1 },
 ]);
 
-// YANGI: Appartment uchun rasm va PDF fayllarni yuklash
-export const uploadAppartmentFiles = multer({
-  storage: (req, file, cb) => {
-    // Fayl turiga qarab storage tanlash
+// Custom storage for mixed file types
+const mixedStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
     if (file.mimetype === "application/pdf") {
-      fileStorage.destination(req, file, cb);
+      const uploadDir = path.join(__dirname, "../public/files");
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      cb(null, uploadDir);
     } else {
-      imageStorage.destination(req, file, cb);
+      const uploadDir = path.join(__dirname, "../public/images");
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      cb(null, uploadDir);
     }
   },
   filename: (req, file, cb) => {
@@ -139,6 +146,11 @@ export const uploadAppartmentFiles = multer({
     const fileExt = path.extname(file.originalname);
     cb(null, `${uniqueSuffix}${fileExt}`);
   },
+});
+
+// YANGI: Appartment uchun rasm va PDF fayllarni yuklash
+export const uploadAppartmentFiles = multer({
+  storage: mixedStorage,
   limits: uploadLimits,
   fileFilter: universalFileFilter,
 }).fields([
@@ -161,18 +173,7 @@ export const uploadAdsImages = multer({
 
 // Contract fayllari uchun alohida middleware
 export const uploadContractFiles = multer({
-  storage: (req, file, cb) => {
-    if (file.mimetype === "application/pdf") {
-      fileStorage.destination(req, file, cb);
-    } else {
-      imageStorage.destination(req, file, cb);
-    }
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const fileExt = path.extname(file.originalname);
-    cb(null, `contract_${uniqueSuffix}${fileExt}`);
-  },
+  storage: mixedStorage,
   limits: uploadLimits,
   fileFilter: universalFileFilter,
 }).fields([

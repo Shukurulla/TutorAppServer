@@ -25,6 +25,25 @@ router.post("/appartment/create", uploadAppartmentFiles, async (req, res) => {
   try {
     const apartmentData = { ...req.body };
 
+    // Contract validation
+    const isContract =
+      apartmentData.contract === "true" || apartmentData.contract === true;
+
+    if (isContract) {
+      // Agar contract true bo'lsa, kamida bitta contract fayli bo'lishi kerak
+      const hasContractImage =
+        req.files?.contractImage && req.files.contractImage[0];
+      const hasContractPdf = req.files?.contractPdf && req.files.contractPdf[0];
+
+      if (!hasContractImage && !hasContractPdf) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Contract turi tanlangan bo'lsa, contractImage yoki contractPdf fayllaridan kamida bittasi yuklash shart!",
+        });
+      }
+    }
+
     // Fayl ma'lumotlarini qo'shish
     if (req.files) {
       // Contract Image
@@ -71,10 +90,7 @@ router.post("/appartment/create", uploadAppartmentFiles, async (req, res) => {
     }
 
     // Boolean qiymatlarni to'g'ri konvertatsiya qilish
-    if (apartmentData.contract) {
-      apartmentData.contract =
-        apartmentData.contract === "true" || apartmentData.contract === true;
-    }
+    apartmentData.contract = isContract;
     if (apartmentData.current) {
       apartmentData.current =
         apartmentData.current === "true" || apartmentData.current === true;
@@ -133,7 +149,6 @@ router.post("/appartment/create", uploadAppartmentFiles, async (req, res) => {
     });
   }
 });
-
 router.get("/appartment/all", async (req, res) => {
   try {
     const appartments = await AppartmentModel.find();
