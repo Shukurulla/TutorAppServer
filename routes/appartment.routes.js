@@ -6,12 +6,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import StudentModel from "../models/student.model.js";
 import tutorModel from "../models/tutor.model.js";
-import {
-  uploadMultipleImages,
-  uploadAppartmentFiles,
-  uploadContractFiles,
-} from "../middlewares/upload.middleware.js";
-
+import { uploadMultipleImages } from "../middlewares/upload.middleware.js";
 import NotificationModel from "../models/notification.model.js";
 import mongoose from "mongoose";
 import permissionModel from "../models/permission.model.js";
@@ -21,134 +16,297 @@ const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
-router.post("/appartment/create", uploadAppartmentFiles, async (req, res) => {
-  try {
-    const apartmentData = { ...req.body };
+router.post(
+  "/appartment/create",
+  authMiddleware,
+  uploadMultipleImages,
+  async (req, res) => {
+    try {
+      const { studentId, typeAppartment, permission } = req.body;
 
-    // Contract validation
-    const isContract =
-      apartmentData.contract === "true" || apartmentData.contract === true;
-
-    if (isContract) {
-      // Agar contract true bo'lsa, kamida bitta contract fayli bo'lishi kerak
-      const hasContractImage =
-        req.files?.contractImage && req.files.contractImage[0];
-      const hasContractPdf = req.files?.contractPdf && req.files.contractPdf[0];
-
-      if (!hasContractImage && !hasContractPdf) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Contract turi tanlangan bo'lsa, contractImage yoki contractPdf fayllaridan kamida bittasi yuklash shart!",
+      // Studentning current appartmenti bor-yo'qligini tekshirish
+      if (!studentId || studentId === "undefined" || studentId.trim() === "") {
+        return res.status(401).json({
+          status: "error",
+          message: "studentId kiritilmagan",
         });
       }
-    }
 
-    // Fayl ma'lumotlarini qo'shish
-    if (req.files) {
-      // Contract Image
-      if (req.files.contractImage && req.files.contractImage[0]) {
-        apartmentData.contractImage = req.files.contractImage[0].filename;
+      const findStudent = await StudentModel.findById(studentId);
+      if (!findStudent) {
+        return res
+          .status(401)
+          .json({ status: "error", message: "Bunday student topilmadi" });
       }
 
-      // Contract PDF
-      if (req.files.contractPdf && req.files.contractPdf[0]) {
-        apartmentData.contractPdf = req.files.contractPdf[0].filename;
+      const currentAppartment = await AppartmentModel.findOne({
+        studentId,
+        current: true,
+        needNew: false,
+        permission,
+      });
+
+      if (!permission) {
+        return res
+          .status(400)
+          .json({ status: "error", message: "Permission _id kiritilmagan" });
       }
 
-      // Boiler Image
-      if (req.files.boilerImage && req.files.boilerImage[0]) {
-        apartmentData.boilerImage = {
-          url: req.files.boilerImage[0].filename,
-          status: "Being checked",
+      const findPermission = await permissionModel.findById(permission);
+
+      if (!findPermission) {
+        return res.status(400).json({
+          status: "error",
+          message: "Permission malumotlari topilmadi",
+        });
+      }
+
+      if (findPermission.status == "finished") {
+        return res
+          .status(400)
+          .json({ status: "error", message: "Bu xabarnoma muddati tugagan" });
+      }
+
+      if (currentAppartment) {
+        return res.status(401).json({
+          status: "error",
+          message: "Siz oldin ijara ma'lumotlarini kiritgansiz",
+        });
+      }
+
+      if (typeAppartment == "tenant") {
+        if (
+          !req.files ||
+          !req.files.boilerImage ||
+          !req.files.gazStove ||
+          !req.files.chimney
+        ) {
+          return res.status(400).json({
+            status: "error",
+            message: "Katyol, gazplita va Mo'ri rasmlari yuklanishi kerak",
+          });
+        }
+
+        const boilerImage = req.files.boilerImage[0];
+        const gazStove = req.files.gazStove[0];
+        const chimney = req.files.chimney[0];
+        const additionImage = req.files?.additionImage
+          ? req.files?.additionImage[0]
+          : null;
+
+        // Contract fayllarini olish
+        const contractImage = req.files?.contractImage
+          ? req.files?.contractImage[0]
+          : null;
+        const contractPdf = req.files?.contractPdf
+          ? req.files?.contractPdf[0]
+          : null;
+
+        // Original filename va extension bilan
+        const getFileUrl = (file, isImage = true) => {
+          const folder = isImage ? "images" : "files";
+          return `/public/${folder}/${file.filename}${
+            file.originalname.includes(".")
+              ? ""
+              : "." + file.originalname.split(".").pop()
+          }`;
         };
-      }
 
-      // Gaz Stove
-      if (req.files.gazStove && req.files.gazStove[0]) {
-        apartmentData.gazStove = {
-          url: req.files.gazStove[0].filename,
-          status: "Being checked",
+        // Apartment data ni tayyorlash
+        const apartmentData = {
+          studentId,
+          boilerImage: { url: getFileUrl(boilerImage) },
+          gazStove: { url: getFileUrl(gazStove) },
+          chimney: { url: getFileUrl(chimney) },
+          additionImage: additionImage
+            ? { url: getFileUrl(additionImage) }
+            : null,
+          needNew: false,
+          current: true,
+          location: {
+            lat: req.body.lat,
+            long: req.body.lon,
+          },
+          ...req.body,
         };
+
+        // Contract fayllarini qo'shish
+        if (contractImage) {
+          apartmentData.contractImage = getFileUrl(contractImage);
+        }
+        if (contractPdf) {
+          apartmentData.contractPdf = getFileUrl(contractPdf, false);
+        }
+
+        // Contract mavjudligini belgilash
+        if (contractImage || contractPdf || req.body.contract) {
+          apartmentData.contract = true;
+        }
+
+        const newAppartment = new AppartmentModel(apartmentData);
+
+        await newAppartment.save();
+
+        await NotificationModel.deleteMany({
+          userId: studentId,
+          notification_type: "report",
+          status: "red",
+        });
+        await NotificationModel.deleteMany({
+          userId: studentId,
+          notification_type: "report",
+          status: "yellow",
+        });
+        await NotificationModel.create({
+          userId: studentId,
+          notification_type: "report",
+          message: "Tekshirilmoqda",
+          status: "blue",
+          appartmentId: newAppartment._id,
+        });
+
+        return res.status(201).json({
+          status: "success",
+          message: "Ijara ma'lumotlari muvaffaqiyatli yaratildi",
+          data: newAppartment,
+        });
       }
 
-      // Chimney
-      if (req.files.chimney && req.files.chimney[0]) {
-        apartmentData.chimney = {
-          url: req.files.chimney[0].filename,
-          status: "Being checked",
+      if (typeAppartment == "relative" || typeAppartment == "littleHouse") {
+        const {
+          studentId,
+          studentPhoneNumber,
+          appartmentOwnerName,
+          appartmentOwnerPhone,
+          typeAppartment,
+          permission,
+        } = req.body;
+
+        const appartment = await AppartmentModel.create({
+          studentId,
+          studentPhoneNumber,
+          appartmentOwnerName,
+          appartmentOwnerPhone,
+          typeAppartment,
+          green: "green",
+          permission,
+        });
+
+        const filterAppartment = {
+          studentPhoneNumber: appartment.studentPhoneNumber,
+          studentId: appartment.studentId,
+          appartmentOwnerName: appartment.appartmentOwnerName,
+          appartmentOwnerPhone: appartment.appartmentOwnerPhone,
+          typeAppartment: appartment.typeAppartment,
+          createdAt: appartment.createdAt,
+          updatedAt: appartment.updatedAt,
+          _id: appartment._id,
+          green: "green",
+          permission: appartment.appartment,
         };
-      }
 
-      // Addition Image
-      if (req.files.additionImage && req.files.additionImage[0]) {
-        apartmentData.additionImage = {
-          url: req.files.additionImage[0].filename,
+        await NotificationModel.deleteMany({
+          userId: studentId,
           status: "Being checked",
-        };
+        });
+        await NotificationModel.deleteMany({
+          userId: studentId,
+          status: "red",
+        });
+        await NotificationModel.deleteMany({
+          userId: studentId,
+          status: "yellow",
+        });
+
+        await NotificationModel.create({
+          userId: studentId,
+          notification_type: "report",
+          message: "Tabriklaymiz siz yashil zonadasiz",
+          status: "green",
+          appartmentId: appartment._id,
+        });
+
+        return res
+          .status(200)
+          .json({ status: "success", data: filterAppartment });
       }
-    }
 
-    // Boolean qiymatlarni to'g'ri konvertatsiya qilish
-    apartmentData.contract = isContract;
-    if (apartmentData.current) {
-      apartmentData.current =
-        apartmentData.current === "true" || apartmentData.current === true;
-    }
-    if (apartmentData.needNew) {
-      apartmentData.needNew =
-        apartmentData.needNew === "true" || apartmentData.needNew === true;
-    }
-    if (apartmentData.view) {
-      apartmentData.view =
-        apartmentData.view === "true" || apartmentData.view === true;
-    }
+      if (typeAppartment == "bedroom") {
+        const {
+          studentId,
+          bedroomNumber,
+          permission,
+          roomNumber,
+          studentPhoneNumber,
+        } = req.body;
 
-    // Number qiymatlarni konvertatsiya qilish
-    if (apartmentData.priceAppartment) {
-      apartmentData.priceAppartment = Number(apartmentData.priceAppartment);
-    }
-    if (apartmentData.numberOfStudents) {
-      apartmentData.numberOfStudents = Number(apartmentData.numberOfStudents);
-    }
+        const appartment = await AppartmentModel.create({
+          studentPhoneNumber,
+          studentId,
+          permission,
+          bedroom: {
+            bedroomNumber: bedroomNumber.toString(),
+            roomNumber: roomNumber.toString(),
+          },
+          status: "green",
+          typeAppartment,
+        });
 
-    // Location ma'lumotlarini strukturalash
-    if (apartmentData.lat && apartmentData.long) {
-      apartmentData.location = {
-        lat: apartmentData.lat,
-        long: apartmentData.long,
-      };
-      delete apartmentData.lat;
-      delete apartmentData.long;
+        const filterAppartment = {
+          studentPhoneNumber: appartment.studentPhoneNumber,
+          bedroom: appartment.bedroom,
+          typeAppartment: appartment.typeAppartment,
+          _id: appartment._id,
+          studentId: appartment.studentId,
+          createdAt: appartment.createdAt,
+          green: "green",
+          permission: appartment.permission,
+          updatedAt: appartment.updatedAt,
+        };
+
+        await NotificationModel.deleteMany({
+          userId: studentId,
+          status: "Being checked",
+        });
+        await NotificationModel.deleteMany({
+          userId: studentId,
+          status: "red",
+        });
+        await NotificationModel.deleteMany({
+          userId: studentId,
+          status: "yellow",
+        });
+        await NotificationModel.create({
+          userId: studentId,
+          notification_type: "report",
+          message: "Ijara malumotlari tekshirildi",
+          status: "green",
+          appartmentId: appartment._id,
+        });
+        await NotificationModel.create({
+          userId: studentId,
+          notification_type: "push",
+          message: "Tabriklaymiz siz yashil zonadasiz",
+          status: "green",
+          appartmentId: appartment._id,
+        });
+
+        return res.status(201).json({
+          status: "success",
+          message: "Ijara ma'lumotlari muvaffaqiyatli yaratildi",
+          data: filterAppartment,
+        });
+      }
+    } catch (error) {
+      console.error("Xatolik:", error);
+      res.status(500).json({
+        status: "error",
+        message: error.message,
+      });
     }
-
-    // Bedroom ma'lumotlarini strukturalash
-    if (apartmentData.bedroomNumber || apartmentData.roomNumber) {
-      apartmentData.bedroom = {
-        bedroomNumber: apartmentData.bedroomNumber || null,
-        roomNumber: apartmentData.roomNumber || null,
-      };
-      delete apartmentData.bedroomNumber;
-      delete apartmentData.roomNumber;
-    }
-
-    const apartment = new AppartmentModel(apartmentData);
-    await apartment.save();
-
-    res.status(201).json({
-      success: true,
-      message: "Appartment muvaffaqiyatli yaratildi",
-      data: apartment,
-    });
-  } catch (error) {
-    console.error("Appartment yaratishda xatolik:", error);
-    res.status(400).json({
-      success: false,
-      message: "Appartment yaratishda xatolik yuz berdi",
-      error: error.message,
-    });
   }
-});
+);
+
 router.get("/appartment/all", async (req, res) => {
   try {
     const appartments = await AppartmentModel.find();
