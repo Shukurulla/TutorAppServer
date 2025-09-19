@@ -105,7 +105,6 @@ mongoose
     console.error("❌ Database connection error:", error);
   });
 
-// Socket handler (o'zgarishsiz qoladi)
 io.on("connection", (socket) => {
   console.log("Yangi foydalanuvchi ulandi:", socket.id);
 
@@ -163,10 +162,8 @@ io.on("connection", (socket) => {
   });
 });
 
-// Socket.io ni global qilish
 app.set("io", io);
 
-// Routes
 app.use(StudentRouter);
 app.use(AppartmentRouter);
 app.use(AdminRouter);
@@ -178,7 +175,7 @@ app.use(AdsRouter);
 app.use(ChatRouter);
 app.use("/tutor-notification", TutorNotificationRouter);
 app.use("/permission", PermissionRouter);
-app.use("/faculty-admin", FacultyAdminRouter); // YANGI ROUTE QOSHILDI
+app.use("/faculty-admin", FacultyAdminRouter);
 
 app.get("/get-banners", async (req, res) => {
   const arrBanner = [

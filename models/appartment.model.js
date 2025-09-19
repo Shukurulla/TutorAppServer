@@ -31,6 +31,14 @@ const appartmentSchema = new mongoose.Schema(
       type: Boolean,
       default: null,
     },
+    contractImage: {
+      type: String,
+      default: null,
+    },
+    contractPdf: {
+      type: String,
+      default: null,
+    },
     typeOfBoiler: {
       type: String,
       default: null,

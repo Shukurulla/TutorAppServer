@@ -22,6 +22,22 @@ const imageStorage = multer.diskStorage({
   },
 });
 
+// Files uchun storage (PDF va boshqa hujjatlar uchun)
+const fileStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, "../public/files");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const fileExt = path.extname(file.originalname);
+    cb(null, `${uniqueSuffix}${fileExt}`);
+  },
+});
+
 // Ads uchun storage
 const adsStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -39,8 +55,8 @@ const adsStorage = multer.diskStorage({
   },
 });
 
-// Fayl filtri
-const fileFilter = (req, file, cb) => {
+// Rasm fayl filtri
+const imageFileFilter = (req, file, cb) => {
   const allowedTypes = ["image/jpeg", "image/png", "image/jpg", "image/gif"];
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
@@ -49,9 +65,41 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// ASOSIY O'ZGARISH: Limitlarni oshirish
+// PDF va hujjat fayl filtri
+const documentFileFilter = (req, file, cb) => {
+  const allowedTypes = [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "image/jpg",
+    "image/gif",
+  ];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Faqat PDF, JPG, JPEG, PNG va GIF formatlar qabul qilinadi!"));
+  }
+};
+
+// Universal fayl filtri (barcha fayl turlari uchun)
+const universalFileFilter = (req, file, cb) => {
+  const allowedTypes = [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "image/jpg",
+    "image/gif",
+  ];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Faqat PDF, JPG, JPEG, PNG va GIF formatlar qabul qilinadi!"));
+  }
+};
+
+// Upload limitlari
 const uploadLimits = {
-  fileSize: 100 * 1024 * 1024, // 100MB dan 10MB ga o'zgartirish
+  fileSize: 100 * 1024 * 1024, // 100MB
   files: 10,
   fields: 20,
   fieldNameSize: 200,
@@ -62,13 +110,13 @@ const uploadLimits = {
 export const uploadSingleImage = multer({
   storage: imageStorage,
   limits: uploadLimits,
-  fileFilter: fileFilter,
+  fileFilter: imageFileFilter,
 }).single("image");
 
 export const uploadMultipleImages = multer({
   storage: imageStorage,
   limits: uploadLimits,
-  fileFilter: fileFilter,
+  fileFilter: imageFileFilter,
 }).fields([
   { name: "boilerImage", maxCount: 1 },
   { name: "gazStove", maxCount: 1 },
@@ -76,20 +124,67 @@ export const uploadMultipleImages = multer({
   { name: "additionImage", maxCount: 1 },
 ]);
 
+// YANGI: Appartment uchun rasm va PDF fayllarni yuklash
+export const uploadAppartmentFiles = multer({
+  storage: (req, file, cb) => {
+    // Fayl turiga qarab storage tanlash
+    if (file.mimetype === "application/pdf") {
+      fileStorage.destination(req, file, cb);
+    } else {
+      imageStorage.destination(req, file, cb);
+    }
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const fileExt = path.extname(file.originalname);
+    cb(null, `${uniqueSuffix}${fileExt}`);
+  },
+  limits: uploadLimits,
+  fileFilter: universalFileFilter,
+}).fields([
+  { name: "boilerImage", maxCount: 1 },
+  { name: "gazStove", maxCount: 1 },
+  { name: "chimney", maxCount: 1 },
+  { name: "additionImage", maxCount: 1 },
+  { name: "contractImage", maxCount: 1 }, // Yangi
+  { name: "contractPdf", maxCount: 1 }, // Yangi
+]);
+
 export const uploadAdsImages = multer({
   storage: adsStorage,
   limits: uploadLimits,
-  fileFilter: fileFilter,
+  fileFilter: imageFileFilter,
 }).fields([
   { name: "image", maxCount: 1 },
   { name: "icon", maxCount: 1 },
+]);
+
+// Contract fayllari uchun alohida middleware
+export const uploadContractFiles = multer({
+  storage: (req, file, cb) => {
+    if (file.mimetype === "application/pdf") {
+      fileStorage.destination(req, file, cb);
+    } else {
+      imageStorage.destination(req, file, cb);
+    }
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const fileExt = path.extname(file.originalname);
+    cb(null, `contract_${uniqueSuffix}${fileExt}`);
+  },
+  limits: uploadLimits,
+  fileFilter: universalFileFilter,
+}).fields([
+  { name: "contractImage", maxCount: 1 },
+  { name: "contractPdf", maxCount: 1 },
 ]);
 
 // Default export
 const upload = multer({
   storage: imageStorage,
   limits: uploadLimits,
-  fileFilter: fileFilter,
+  fileFilter: imageFileFilter,
 });
 
 export default upload;
