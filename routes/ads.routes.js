@@ -46,6 +46,7 @@ router.post(
         title,
         image: `public/ads/${imageFile.filename}`,
         icon: iconFile ? `public/ads/${iconFile.filename}` : "",
+        link: req.body.link,
       });
 
       await newAd.save();
