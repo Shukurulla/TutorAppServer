@@ -32,6 +32,8 @@ router.post(
         });
       }
 
+      console.log(req.files);
+
       const findStudent = await StudentModel.findById(studentId);
       if (!findStudent) {
         return res
